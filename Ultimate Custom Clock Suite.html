@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Custom Clock Suite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&family=Open+Sans&family=Lato&family=Montserrat&family=Oswald&family=Raleway&family=Merriweather&family=Playfair+Display&family=Dancing+Script&family=Pacifico&family=Indie+Flower&family=VT323&family=Press+Start+2P&family=Bangers&family=Orbitron&display=swap" rel="stylesheet">
+    
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111; touch-action: none; font-family: 'Roboto', sans-serif; }
+        
+        /* Layer Management */
+        #layer-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; background-color: #000; }
+        #bg-img { transition: transform 0.1s cubic-bezier(0,0,0.2,1); transform-origin: center center; will-change: transform; max-width: none; }
+        
+        #layer-canvas { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+        
+        #layer-ui { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+        
+        /* Interactive Elements */
+        .draggable { 
+            position: absolute; cursor: grab; user-select: none; pointer-events: auto; 
+            white-space: nowrap; text-shadow: 2px 2px 8px rgba(0,0,0,0.6); 
+            transition: color 0.2s, font-size 0.2s;
+        }
+        .draggable:active { cursor: grabbing; }
+
+        /* Settings Panel */
+        #settings-panel { 
+            pointer-events: auto; 
+            background: rgba(18, 18, 18, 0.95); 
+            backdrop-filter: blur(12px);
+            box-shadow: 5px 0 30px rgba(0,0,0,0.8);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            scrollbar-width: thin;
+            scrollbar-color: #555 #222;
+        }
+        
+        /* Custom Inputs */
+        input[type="range"] { accent-color: #3b82f6; cursor: pointer; height: 6px; border-radius: 5px; }
+        input[type="color"] { width: 40px; height: 40px; border: none; cursor: pointer; background: none; padding: 0; border-radius: 50%; overflow: hidden; }
+        input[type="number"] { background: #333; border: 1px solid #555; color: white; padding: 4px; border-radius: 4px; width: 80px; text-align: center; }
+        
+        .font-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #333; transition: background 0.2s; font-size: 1.1rem; }
+        .font-item:hover { background-color: #333; }
+        .font-item.active { background-color: #2563eb; color: white; }
+
+        .btn-action { transition: all 0.2s; active: scale-95; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: #222; }
+        ::-webkit-scrollbar-thumb { background: #555; border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: #777; }
+    </style>
+</head>
+<body>
+
+    <div id="layer-bg">
+        <img id="bg-img" src="" alt="Background">
+    </div>
+
+    <canvas id="drawing-canvas"></canvas>
+
+    <div id="layer-ui">
+        <div id="comp-clock" class="draggable" style="top: 30%; left: 50%; transform: translate(-50%, -50%); font-size: 8rem; color: white;">12:00:00</div>
+        <div id="comp-date" class="draggable" style="top: 45%; left: 50%; transform: translate(-50%, -50%); font-size: 3rem; color: #ddd;">2025/01/01</div>
+        <div id="text-container"></div>
+    </div>
+
+    <button id="btn-toggle-panel" class="fixed bottom-6 right-6 z-50 bg-blue-600 hover:bg-blue-500 text-white rounded-full p-4 shadow-2xl transition-all btn-action pointer-events-auto">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+    </button>
+
+    <div id="settings-panel" class="fixed top-0 left-0 h-full w-full md:w-[500px] text-gray-100 flex flex-col transform -translate-x-full z-50">
+        
+        <div class="p-5 bg-gray-900 border-b border-gray-700 flex justify-between items-center shrink-0">
+            <h2 class="text-2xl font-bold tracking-wider" id="txt-title">Dashboard</h2>
+            <div class="flex gap-2">
+                <button id="btn-lazy" class="px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded font-bold hover:scale-105 transition-transform btn-action">✨ Lazy Random</button>
+                <button id="btn-lang" class="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600 border border-gray-600">中/EN</button>
+                <button id="btn-close" class="px-3 py-1 bg-red-600 rounded hover:bg-red-500 font-bold">&times;</button>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-6 space-y-8">
+
+            <section class="space-y-4">
+                <h3 class="text-xl font-bold text-blue-400 border-b border-gray-700 pb-2" id="head-clock">Clock & Date</h3>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <label class="flex items-center space-x-2 cursor-pointer bg-gray-800 p-2 rounded">
+                        <input type="checkbox" id="chk-clock-show" checked class="w-5 h-5">
+                        <span id="lbl-show-clock">Show Clock</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer bg-gray-800 p-2 rounded">
+                        <input type="checkbox" id="chk-date-show" checked class="w-5 h-5">
+                        <span id="lbl-show-date">Show Date</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer bg-gray-800 p-2 rounded">
+                        <input type="checkbox" id="chk-24h" checked class="w-5 h-5">
+                        <span id="lbl-24h">24H Format</span>
+                    </label>
+                </div>
+
+                <div class="control-group">
+                    <label id="lbl-size">Size</label>
+                    <div class="flex items-center gap-3">
+                        <input type="range" id="rng-size" min="1" max="25" step="0.5" value="8" class="flex-1 h-2 bg-gray-700 rounded-lg appearance-none">
+                        <input type="number" id="num-size" min="1" max="25" step="0.5" value="8">
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between bg-gray-800 p-3 rounded">
+                    <span id="lbl-color">Text Color</span>
+                    <input type="color" id="col-text" value="#ffffff">
+                </div>
+
+                <div>
+                    <label class="block mb-2 text-sm text-gray-400" id="lbl-font">Font Family (15 Options)</label>
+                    <div id="font-list" class="bg-gray-800 border border-gray-600 rounded h-40 overflow-y-auto">
+                        </div>
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <h3 class="text-xl font-bold text-green-400 border-b border-gray-700 pb-2" id="head-bg">Background</h3>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="btn-rand-bg" class="py-3 bg-gray-700 hover:bg-gray-600 rounded text-center btn-action">🎲 Random Nature</button>
+                    <div class="relative">
+                        <input type="file" id="inp-file" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                        <button class="w-full h-full py-3 bg-blue-700 hover:bg-blue-600 rounded text-center btn-action" id="lbl-upload">Upload (GIF/JPG)</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label id="lbl-scale">Scale (%)</label>
+                    <div class="flex items-center gap-3">
+                        <input type="range" id="rng-scale" min="1" max="10000" step="10" value="100" class="flex-1">
+                        <input type="number" id="num-scale" min="1" max="10000" step="10" value="100">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label id="lbl-pos-x">Position X</label>
+                    <div class="flex items-center gap-3">
+                        <input type="range" id="rng-pos-x" min="-5000" max="5000" value="0" class="flex-1">
+                        <input type="number" id="num-pos-x" min="-5000" max="5000" value="0">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label id="lbl-pos-y">Position Y</label>
+                    <div class="flex items-center gap-3">
+                        <input type="range" id="rng-pos-y" min="-5000" max="5000" value="0" class="flex-1">
+                        <input type="number" id="num-pos-y" min="-5000" max="5000" value="0">
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between bg-gray-800 p-3 rounded">
+                    <span id="lbl-bg-color">Solid BG Color</span>
+                    <input type="color" id="col-bg" value="#000000">
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <h3 class="text-xl font-bold text-pink-400 border-b border-gray-700 pb-2" id="head-creative">Creative Studio</h3>
+                
+                <div class="flex gap-2">
+                    <button id="btn-undo" class="flex-1 py-3 bg-yellow-700 hover:bg-yellow-600 rounded font-bold btn-action">↩ Undo</button>
+                    <button id="btn-redo" class="flex-1 py-3 bg-yellow-700 hover:bg-yellow-600 rounded font-bold btn-action">↪ Redo</button>
+                </div>
+                <button id="btn-clear" class="w-full py-2 bg-red-900 hover:bg-red-800 rounded text-sm mb-2" id="lbl-clear">Clear Canvas</button>
+
+                <div class="bg-gray-800 p-3 rounded space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span id="lbl-brush-col-1">Color 1 (RGB)</span>
+                        <input type="color" id="col-brush-1" value="#ff0000">
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="chk-gradient" class="w-4 h-4">
+                            <span class="text-sm text-gray-300" id="lbl-use-grad">Use Gradient</span>
+                        </label>
+                        <input type="color" id="col-brush-2" value="#0000ff">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label id="lbl-brush-size">Brush Size</label>
+                    <div class="flex items-center gap-3">
+                        <input type="range" id="rng-brush-size" min="1" max="150" value="5" class="flex-1">
+                        <input type="number" id="num-brush-size" min="1" max="150" value="5">
+                    </div>
+                </div>
+
+                <label class="flex items-center justify-between bg-indigo-900 p-4 rounded-lg cursor-pointer border border-indigo-700 hover:bg-indigo-800 transition">
+                    <span class="text-lg font-bold text-white" id="lbl-mode-draw">✏️ Drawing Mode</span>
+                    <input type="checkbox" id="chk-mode-draw" class="w-6 h-6 accent-pink-500">
+                </label>
+                <p class="text-xs text-gray-400 text-center" id="msg-hint">Turning on Drawing Mode locks clock movement.</p>
+
+                <div class="pt-4 border-t border-gray-700">
+                    <label class="block mb-2" id="lbl-add-note">Add Text Note</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="inp-note" class="flex-1 bg-gray-800 border border-gray-600 rounded px-3 text-white" placeholder="...">
+                        <button id="btn-add-note" class="px-4 py-2 bg-green-600 hover:bg-green-500 rounded font-bold">+</button>
+                    </div>
+                </div>
+            </section>
+            
+            <div class="h-10"></div> </div>
+    </div>
+
+    <script>
+        // --- DATA & STATE ---
+        const fonts = [
+            'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Oswald', 
+            'Raleway', 'Merriweather', 'Playfair Display', 'Dancing Script', 
+            'Pacifico', 'Indie Flower', 'VT323', 'Press Start 2P', 'Bangers', 'Orbitron'
+        ];
+
+        const translations = {
+            en: {
+                title: 'Dashboard', lazy: '✨ Lazy Random',
+                clock: 'Clock & Date', showClock: 'Show Clock', showDate: 'Show Date', format24: '24H Format',
+                size: 'Size', color: 'Text Color', font: 'Font Family',
+                bg: 'Background', randBg: '🎲 Random Nature', upload: 'Upload (GIF/JPG)',
+                scale: 'Scale (%)', posX: 'Position X', posY: 'Position Y', solidBg: 'Solid BG Color',
+                creative: 'Creative Studio', undo: '↩ Undo', redo: '↪ Redo', clear: 'Clear Canvas',
+                brush1: 'Color 1 (RGB)', useGrad: 'Use Gradient', brushSize: 'Brush Size',
+                drawMode: '✏️ Drawing Mode', hint: 'Drawing Mode ON locks dragging.',
+                addNote: 'Add Text Note', placeholder: 'Type text here...'
+            },
+            zh: {
+                title: '控制面板', lazy: '✨ 懶人隨機配置',
+                clock: '時鐘與日期', showClock: '顯示時鐘', showDate: '顯示日期', format24: '24小時制',
+                size: '字體大小', color: '文字顏色', font: '字型選擇 (15種)',
+                bg: '背景設定', randBg: '🎲 隨機自然風景', upload: '上傳圖片 (GIF/JPG)',
+                scale: '圖片縮放 (%)', posX: '水平位置 X', posY: '垂直位置 Y', solidBg: '背景底色',
+                creative: '繪圖工作室', undo: '↩ 上一步', redo: '↪ 下一步', clear: '清除畫布',
+                brush1: '顏色 1 (RGB)', useGrad: '啟用漸層色', brushSize: '筆刷大小',
+                drawMode: '✏️ 繪圖模式 (塗鴉)', hint: '開啟繪圖模式時，無法拖曳物件。',
+                addNote: '新增文字便條', placeholder: '輸入文字...'
+            }
+        };
+
+        const state = {
+            lang: 'zh',
+            drawing: false,
+            history: [],
+            historyStep: -1,
+            config: {
+                is24h: true,
+                drawMode: false
+            }
+        };
+
+        // --- DOM REFERENCES ---
+        const $ = (id) => document.getElementById(id);
+        const els = {
+            panel: $('settings-panel'),
+            bg: $('bg-img'),
+            canvas: $('drawing-canvas'),
+            clock: $('comp-clock'),
+            date: $('comp-date'),
+            textContainer: $('text-container'),
+            fontList: $('font-list'),
+            // Inputs
+            ranges: {
+                size: $('rng-size'), scale: $('rng-scale'), 
+                posX: $('rng-pos-x'), posY: $('rng-pos-y'), 
+                brush: $('rng-brush-size')
+            },
+            nums: {
+                size: $('num-size'), scale: $('num-scale'), 
+                posX: $('num-pos-x'), posY: $('num-pos-y'), 
+                brush: $('num-brush-size')
+            },
+            colors: {
+                text: $('col-text'), bg: $('col-bg'),
+                brush1: $('col-brush-1'), brush2: $('col-brush-2')
+            },
+            chks: {
+                clock: $('chk-clock-show'), date: $('chk-date-show'),
+                is24: $('chk-24h'), grad: $('chk-gradient'),
+                draw: $('chk-mode-draw')
+            }
+        };
+
+        const ctx = els.canvas.getContext('2d');
+
+        // --- INITIALIZATION ---
+        function init() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Generate Font List
+            els.fontList.innerHTML = fonts.map(f => 
+                `<div class="font-item" onclick="setFont('${f}')" style="font-family:'${f}'">${f}</div>`
+            ).join('');
+
+            // Start Clock
+            setInterval(updateTime, 1000);
+            updateTime();
+
+            // Setup Sync (Slider <-> Number)
+            setupSync('size', val => { els.clock.style.fontSize = val + 'rem'; els.date.style.fontSize = (val*0.4) + 'rem'; });
+            setupSync('scale', updateBg);
+            setupSync('posX', updateBg);
+            setupSync('posY', updateBg);
+            setupSync('brush', () => {}); // Just updates value
+
+            // Set Default Random BG
+            setRandomBg();
+            
+            // Save initial canvas state
+            saveHistory();
+
+            // Language
+            updateLang();
+        }
+
+        function setupSync(key, callback) {
+            const r = els.ranges[key];
+            const n = els.nums[key];
+            r.addEventListener('input', () => { n.value = r.value; callback(r.value); });
+            n.addEventListener('input', () => { r.value = n.value; callback(n.value); });
+        }
+
+        function updateBg() {
+            const scale = els.ranges.scale.value;
+            const x = els.ranges.posX.value;
+            const y = els.ranges.posY.value;
+            els.bg.style.transform = `translate(${x}px, ${y}px) scale(${scale/100})`;
+        }
+
+        function setFont(font) {
+            els.clock.style.fontFamily = font;
+            els.date.style.fontFamily = font;
+            // Update UI selection
+            document.querySelectorAll('.font-item').forEach(d => {
+                d.classList.toggle('active', d.innerText === font);
+            });
+        }
+
+        // --- CORE FUNCTIONS ---
+        
+        // 1. Clock Logic
+        function updateTime() {
+            const now = new Date();
+            let h = now.getHours();
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            
+            if (!els.chks.is24.checked) {
+                h = h % 12 || 12;
+            }
+            els.clock.innerText = `${String(h).padStart(2,'0')}:${m}:${s}`;
+            
+            // Date
+            els.date.innerText = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}`;
+        }
+
+        // 2. Background Logic
+        function setRandomBg() {
+            const id = Math.floor(Math.random() * 1000);
+            els.bg.src = `https://picsum.photos/seed/${id}/1920/1080`;
+            resetBgControls();
+        }
+        
+        $('btn-rand-bg').onclick = setRandomBg;
+        
+        $('inp-file').onchange = (e) => {
+            const file = e.target.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    els.bg.src = evt.target.result;
+                    resetBgControls();
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+
+        function resetBgControls() {
+            els.ranges.scale.value = els.nums.scale.value = 100;
+            els.ranges.posX.value = els.nums.posX.value = 0;
+            els.ranges.posY.value = els.nums.posY.value = 0;
+            updateBg();
+        }
+
+        // 3. Drawing Logic
+        function resizeCanvas() {
+            els.canvas.width = window.innerWidth;
+            els.canvas.height = window.innerHeight;
+            redrawHistory();
+        }
+
+        function getPos(e) { return { x: e.clientX, y: e.clientY }; }
+
+        els.canvas.addEventListener('mousedown', startDraw);
+        els.canvas.addEventListener('mousemove', draw);
+        els.canvas.addEventListener('mouseup', endDraw);
+
+        function startDraw(e) {
+            if (!els.chks.draw.checked) return;
+            state.drawing = true;
+            ctx.beginPath();
+            const pos = getPos(e);
+            ctx.moveTo(pos.x, pos.y);
+            
+            // Style setup
+            ctx.lineWidth = els.ranges.brush.value;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            if (els.chks.grad.checked) {
+                // Gradient based on canvas width (simple effect)
+                const grad = ctx.createLinearGradient(0, 0, els.canvas.width, els.canvas.height);
+                grad.addColorStop(0, els.colors.brush1.value);
+                grad.addColorStop(1, els.colors.brush2.value);
+                ctx.strokeStyle = grad;
+            } else {
+                ctx.strokeStyle = els.colors.brush1.value;
+            }
+        }
+
+        function draw(e) {
+            if (!state.drawing) return;
+            const pos = getPos(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        }
+
+        function endDraw() {
+            if (state.drawing) {
+                state.drawing = false;
+                ctx.closePath();
+                saveHistory();
+            }
+        }
+
+        // 4. History (Undo/Redo)
+        function saveHistory() {
+            state.historyStep++;
+            if (state.historyStep < state.history.length) {
+                state.history.length = state.historyStep;
+            }
+            state.history.push(els.canvas.toDataURL());
+        }
+
+        function redrawHistory() {
+            if(state.history[state.historyStep]) {
+                const img = new Image();
+                img.src = state.history[state.historyStep];
+                img.onload = () => {
+                    ctx.clearRect(0,0,els.canvas.width, els.canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                };
+            }
+        }
+
+        $('btn-undo').onclick = () => {
+            if (state.historyStep > 0) {
+                state.historyStep--;
+                redrawHistory();
+            }
+        };
+
+        $('btn-redo').onclick = () => {
+            if (state.historyStep < state.history.length - 1) {
+                state.historyStep++;
+                redrawHistory();
+            }
+        };
+        
+        $('btn-clear').onclick = () => {
+            ctx.clearRect(0,0,els.canvas.width, els.canvas.height);
+            saveHistory();
+        };
+
+        // 5. Dragging Logic
+        let dragItem = null;
+        let offset = {x:0, y:0};
+
+        document.addEventListener('mousedown', (e) => {
+            if (els.chks.draw.checked) return; // Locked in draw mode
+            if (e.target.classList.contains('draggable')) {
+                dragItem = e.target;
+                offset.x = e.clientX - dragItem.offsetLeft;
+                offset.y = e.clientY - dragItem.offsetTop;
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (dragItem) {
+                e.preventDefault();
+                dragItem.style.left = (e.clientX - offset.x) + 'px';
+                dragItem.style.top = (e.clientY - offset.y) + 'px';
+            }
+        });
+
+        document.addEventListener('mouseup', () => dragItem = null);
+
+        // 6. UI Logic
+        $('btn-toggle-panel').onclick = () => {
+            els.panel.classList.toggle('-translate-x-full');
+        };
+        $('btn-close').onclick = () => els.panel.classList.add('-translate-x-full');
+
+        // Color & Visibility Sync
+        els.colors.text.oninput = (e) => {
+            els.clock.style.color = e.target.value;
+            els.date.style.color = e.target.value;
+        };
+        els.colors.bg.oninput = (e) => $('layer-bg').style.backgroundColor = e.target.value;
+        
+        els.chks.clock.onchange = (e) => els.clock.style.display = e.target.checked ? 'block' : 'none';
+        els.chks.date.onchange = (e) => els.date.style.display = e.target.checked ? 'block' : 'none';
+        
+        els.chks.draw.onchange = (e) => {
+            els.canvas.style.pointerEvents = e.target.checked ? 'auto' : 'none';
+        };
+
+        // Text Note
+        $('btn-add-note').onclick = () => {
+            const txt = $('inp-note').value;
+            if(!txt) return;
+            const div = document.createElement('div');
+            div.className = 'draggable text-4xl font-bold text-white shadow-lg';
+            div.innerText = txt;
+            div.style.left = '50%'; div.style.top = '50%';
+            div.style.color = els.colors.text.value;
+            div.style.fontFamily = els.clock.style.fontFamily;
+            // Double click to remove
+            div.ondblclick = () => div.remove();
+            els.textContainer.appendChild(div);
+            $('inp-note').value = '';
+        };
+
+        // 7. LAZY RANDOM BUTTON
+        $('btn-lazy').onclick = () => {
+            // Random Font
+            const rFont = fonts[Math.floor(Math.random()*fonts.length)];
+            setFont(rFont);
+            
+            // Random Color
+            const rColor = '#' + Math.floor(Math.random()*16777215).toString(16);
+            els.colors.text.value = rColor;
+            els.clock.style.color = rColor;
+            els.date.style.color = rColor;
+
+            // Random Size
+            const rSize = Math.floor(Math.random() * 10) + 4;
+            els.ranges.size.value = els.nums.size.value = rSize;
+            els.clock.style.fontSize = rSize + 'rem';
+            els.date.style.fontSize = (rSize * 0.4) + 'rem';
+
+            // Random Background
+            setRandomBg();
+            
+            // Reset Positions (Center)
+            els.clock.style.left = '50%'; els.clock.style.top = '30%';
+            els.date.style.left = '50%'; els.date.style.top = '50%';
+        };
+
+        // 8. i18n
+        $('btn-lang').onclick = () => {
+            state.lang = state.lang === 'zh' ? 'en' : 'zh';
+            updateLang();
+        };
+
+        function updateLang() {
+            const t = translations[state.lang];
+            $('txt-title').innerText = t.title;
+            $('btn-lazy').innerText = t.lazy;
+            $('head-clock').innerText = t.clock;
+            $('lbl-show-clock').innerText = t.showClock;
+            $('lbl-show-date').innerText = t.showDate;
+            $('lbl-24h').innerText = t.format24;
+            $('lbl-size').innerText = t.size;
+            $('lbl-color').innerText = t.color;
+            $('lbl-font').innerText = t.font;
+            $('head-bg').innerText = t.bg;
+            $('btn-rand-bg').innerText = t.randBg;
+            $('lbl-upload').innerText = t.upload;
+            $('lbl-scale').innerText = t.scale;
+            $('lbl-pos-x').innerText = t.posX;
+            $('lbl-pos-y').innerText = t.posY;
+            $('lbl-bg-color').innerText = t.solidBg;
+            $('head-creative').innerText = t.creative;
+            $('btn-undo').innerText = t.undo;
+            $('btn-redo').innerText = t.redo;
+            $('btn-clear').innerText = t.clear;
+            $('lbl-brush-col-1').innerText = t.brush1;
+            $('lbl-use-grad').innerText = t.useGrad;
+            $('lbl-brush-size').innerText = t.brushSize;
+            $('lbl-mode-draw').innerText = t.drawMode;
+            $('msg-hint').innerText = t.hint;
+            $('lbl-add-note').innerText = t.addNote;
+            $('inp-note').placeholder = t.placeholder;
+        }
+
+        // Run
+        init();
+
+    </script>
+</body>
+</html>
