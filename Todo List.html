@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧倒數待辦清單 (Pro)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4F46E5',
+                        secondary: '#10B981',
+                        danger: '#EF4444',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { transition: background-color 0.3s, color 0.3s; }
+        .clock-font { font-family: 'Courier New', Courier, monospace; font-weight: bold; }
+        
+        /* Modal Animation */
+        @keyframes pulse-red {
+            0%, 100% { background-color: rgba(239, 68, 68, 0.95); }
+            50% { background-color: rgba(153, 27, 27, 0.95); }
+        }
+        .alarm-active { animation: pulse-red 1.5s infinite; }
+        
+        /* Spinner */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 3px solid #3498db;
+            width: 20px;
+            height: 20px;
+            -webkit-animation: spin 1s linear infinite; /* Safari */
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen flex flex-col font-sans">
+
+    <header class="bg-white dark:bg-gray-800 shadow-md p-4 sticky top-0 z-10">
+        <div class="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="text-center md:text-left">
+                <div id="current-clock" class="text-4xl md:text-5xl clock-font text-primary dark:text-indigo-400 tracking-wider">00:00:00</div>
+                <div id="current-date" class="text-lg text-gray-500 dark:text-gray-400 mt-1">YYYY-MM-DD</div>
+            </div>
+            
+            <div class="flex gap-3">
+                <button onclick="toggleLang()" class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 transition text-sm font-bold" id="btn-lang">EN/中文</button>
+                <button onclick="toggleTheme()" class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 transition text-sm font-bold" id="btn-theme">🌗 Theme</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-5xl mx-auto w-full p-4 space-y-8">
+
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <h2 class="text-2xl font-bold mb-4 border-b pb-2 dark:border-gray-700" data-i18n="addTitle">新增待辦與計時</h2>
+            
+            <div class="flex flex-wrap gap-2 mb-6">
+                <span class="text-sm self-center text-gray-500 mr-2" data-i18n="presets">快速預設:</span>
+                <button onclick="addPreset('school')" class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm hover:bg-blue-200">🏫 <span data-i18n="p_school">上學</span></button>
+                <button onclick="addPreset('breakfast')" class="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm hover:bg-orange-200">🥯 <span data-i18n="p_breakfast">早餐</span></button>
+                <button onclick="addPreset('lunch')" class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm hover:bg-green-200">🍱 <span data-i18n="p_lunch">午餐</span></button>
+                <button onclick="addPreset('dinner')" class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm hover:bg-purple-200">🍛 <span data-i18n="p_dinner">晚餐</span></button>
+            </div>
+
+            <form id="todo-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
+                <div class="lg:col-span-3">
+                    <label class="block text-sm font-bold mb-1" data-i18n="labelTitle">事項名稱</label>
+                    <input type="text" id="input-title" class="w-full p-3 rounded border dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary outline-none" placeholder="Task Name" required>
+                </div>
+                
+                <div class="lg:col-span-2">
+                    <label class="block text-sm font-bold mb-1" data-i18n="labelGroup">群組</label>
+                    <input type="text" id="input-group" class="w-full p-3 rounded border dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary outline-none" placeholder="General">
+                </div>
+
+                <div class="lg:col-span-3">
+                    <label class="block text-sm font-bold mb-1" data-i18n="labelTime">目標時間</label>
+                    <input type="datetime-local" id="input-time" step="1" class="w-full p-3 rounded border dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary outline-none" required>
+                </div>
+
+                <div class="lg:col-span-2">
+                    <label class="block text-sm font-bold mb-1" data-i18n="labelSound">提示音</label>
+                    <select id="input-sound" class="w-full p-3 rounded border dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-primary outline-none">
+                        </select>
+                </div>
+
+                <div class="lg:col-span-2">
+                    <button type="submit" class="w-full p-3 bg-primary hover:bg-indigo-700 text-white font-bold rounded shadow transition flex items-center justify-center gap-2">
+                        <span class="text-xl">+</span> <span data-i18n="btnAdd">加入</span>
+                    </button>
+                </div>
+            </form>
+            
+            <div class="mt-4 pt-4 border-t dark:border-gray-700">
+                <details>
+                    <summary class="cursor-pointer text-sm text-primary font-bold hover:underline" data-i18n="manageSounds">管理音效 / 上傳</summary>
+                    <div class="mt-2 p-3 bg-gray-50 dark:bg-gray-900 rounded border dark:border-gray-700">
+                        <p class="text-xs text-gray-500 mb-2" data-i18n="uploadNote">支援 mp3/ogg (最大 10MB), 最多 20 個自訂音效。</p>
+                        <div class="flex items-center gap-2">
+                            <input type="file" id="sound-upload" accept="audio/*" class="text-sm block w-full text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
+                            <div id="upload-spinner" class="loader hidden"></div>
+                        </div>
+                        <ul id="custom-sound-list" class="mt-2 text-sm space-y-1"></ul>
+                    </div>
+                </details>
+            </div>
+        </section>
+
+        <section>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold" data-i18n="listTitle">我的待辦清單</h2>
+                <span id="list-count" class="bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-full text-sm font-bold">0</span>
+            </div>
+            
+            <div id="todo-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                </div>
+        </section>
+
+    </main>
+
+    <div id="alarm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90">
+        <div class="alarm-active w-full max-w-lg p-8 rounded-2xl shadow-2xl text-white text-center transform scale-100 transition-transform">
+            <h1 class="text-6xl mb-4">⏰</h1>
+            <h2 id="alarm-title" class="text-4xl font-bold mb-4">Time is up!</h2>
+            <p id="alarm-time" class="text-xl mb-8 opacity-90">00:00:00</p>
+            
+            <button onclick="stopAlarm()" class="w-full py-4 bg-white text-red-600 font-extrabold text-2xl rounded-xl hover:bg-gray-100 shadow-lg transform active:scale-95 transition">
+                <span data-i18n="stopAlarm">關閉鬧鐘</span> (STOP)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 系統架構：
+         * 1. IndexedDB: 負責儲存大型音效檔 (Blob/File)。
+         * 2. LocalStorage: 負責儲存應用程式狀態 (Todos, Settings, 音效清單Metadata)。
+         * 3. Web Audio API: 負責產生預設合成音效。
+         * 4. HTML5 Audio: 負責播放自訂音效。
+         */
+
+        // --- 設定常數 ---
+        const MAX_CUSTOM_SOUNDS = 20; 
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+        const DB_NAME = 'SmartTodoDB';
+        const DB_VERSION = 1;
+
+        // --- 狀態變數 ---
+        let db = null; // IndexedDB instance
+        let currentAudio = null;
+        let audioContext = null;
+
+        let state = {
+            todos: [],
+            customSoundMeta: [], // 僅存 {id, name}，實際檔案在 DB
+            settings: {
+                lang: 'zh-TW',
+                theme: 'light'
+            }
+        };
+
+        const defaultSounds = [
+            { id: 'def-1', name: 'Digital Beep' },
+            { id: 'def-2', name: 'Classic Alarm' },
+            { id: 'def-3', name: 'Soft Chime' },
+            { id: 'def-4', name: 'Emergency' },
+            { id: 'def-5', name: 'Arcade Up' },
+            { id: 'def-6', name: 'Space Laser' },
+            { id: 'def-7', name: 'Gentle Wake' },
+            { id: 'def-8', name: 'Notification' },
+            { id: 'def-9', name: 'Heavy Horn' },
+            { id: 'def-10', name: 'Simple Tick' }
+        ];
+
+        const resources = {
+            'zh-TW': {
+                addTitle: '新增待辦與計時',
+                presets: '快速預設:',
+                p_school: '上學', p_breakfast: '早餐', p_lunch: '午餐', p_dinner: '晚餐',
+                labelTitle: '事項名稱',
+                labelGroup: '群組 (選填)',
+                labelTime: '目標時間',
+                labelSound: '提示音',
+                btnAdd: '加入行程',
+                manageSounds: '管理音效 / 上傳',
+                uploadNote: '支援 mp3/ogg/wav (最大 10MB), 上限 20 個自訂音效。',
+                listTitle: '我的待辦清單',
+                stopAlarm: '關閉鬧鐘',
+                edit: '編輯',
+                save: '儲存',
+                delete: '刪除',
+                remaining: '剩餘:',
+                overdue: '已過期',
+                group: '群組:',
+                soundDefault: '預設音效',
+                soundCustom: '自訂音效'
+            },
+            'en': {
+                addTitle: 'Add New Task',
+                presets: 'Quick Presets:',
+                p_school: 'School', p_breakfast: 'Breakfast', p_lunch: 'Lunch', p_dinner: 'Dinner',
+                labelTitle: 'Task Name',
+                labelGroup: 'Group (Optional)',
+                labelTime: 'Target Time',
+                labelSound: 'Alarm Sound',
+                btnAdd: 'Add Task',
+                manageSounds: 'Manage Sounds / Upload',
+                uploadNote: 'Support mp3/ogg/wav (Max 10MB), Max 20 custom sounds.',
+                listTitle: 'My Todo List',
+                stopAlarm: 'Stop Alarm',
+                edit: 'Edit',
+                save: 'Save',
+                delete: 'Delete',
+                remaining: 'Left:',
+                overdue: 'Overdue',
+                group: 'Grp:',
+                soundDefault: 'Default',
+                soundCustom: 'Custom'
+            }
+        };
+
+        // --- IndexedDB Helper (處理大型檔案) ---
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains('sounds')) {
+                        db.createObjectStore('sounds'); // Key = soundId (string)
+                    }
+                };
+
+                request.onsuccess = (e) => {
+                    db = e.target.result;
+                    resolve(db);
+                };
+
+                request.onerror = (e) => {
+                    console.error("IndexedDB error:", e);
+                    reject(e);
+                };
+            });
+        }
+
+        function saveSoundToDB(id, blob) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(['sounds'], 'readwrite');
+                const store = tx.objectStore('sounds');
+                const req = store.put(blob, id);
+                req.onsuccess = () => resolve();
+                req.onerror = (e) => reject(e);
+            });
+        }
+
+        function getSoundFromDB(id) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(['sounds'], 'readonly');
+                const store = tx.objectStore('sounds');
+                const req = store.get(id);
+                req.onsuccess = (e) => resolve(e.target.result);
+                req.onerror = (e) => reject(e);
+            });
+        }
+
+        function deleteSoundFromDB(id) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(['sounds'], 'readwrite');
+                const store = tx.objectStore('sounds');
+                const req = store.delete(id);
+                req.onsuccess = () => resolve();
+                req.onerror = (e) => reject(e);
+            });
+        }
+
+        // --- 初始化流程 ---
+        async function init() {
+            try {
+                await initDB(); // 等待 DB 準備好
+                loadState();
+                
+                // UI 初始化
+                applyTheme();
+                applyLang();
+                renderSoundOptions();
+                renderList();
+                renderCustomSoundList();
+
+                // 預設時間
+                const now = new Date();
+                now.setHours(now.getHours() + 1, 0, 0, 0);
+                document.getElementById('input-time').value = toLocalISOString(now);
+
+                // 啟動 Loops
+                setInterval(() => {
+                    updateClock();
+                    checkAlarms();
+                }, 1000);
+                setInterval(updateCountdowns, 1000);
+
+                // Event Listeners
+                document.getElementById('sound-upload').addEventListener('change', handleFileUpload);
+
+            } catch (err) {
+                console.error("Init failed:", err);
+                alert("瀏覽器資料庫初始化失敗，部分功能可能無法使用。");
+            }
+        }
+
+        // --- 資料狀態管理 (LocalStorage) ---
+        function saveState() {
+            localStorage.setItem('todoApp_pro_v1', JSON.stringify(state));
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem('todoApp_pro_v1');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                state = { ...state, ...parsed };
+                // 確保 settings 存在
+                if(!state.settings) state.settings = { lang: 'zh-TW', theme: 'light' };
+                if(!state.customSoundMeta) state.customSoundMeta = [];
+            }
+        }
+
+        // --- 邏輯功能 ---
+        function toLocalISOString(date) {
+            const pad = (num) => (num < 10 ? '0' : '') + num;
+            return date.getFullYear() +
+                '-' + pad(date.getMonth() + 1) +
+                '-' + pad(date.getDate()) +
+                'T' + pad(date.getHours()) +
+                ':' + pad(date.getMinutes()) +
+                ':' + pad(date.getSeconds());
+        }
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('current-clock').textContent = now.toLocaleTimeString('en-US', { hour12: false });
+            document.getElementById('current-date').textContent = now.toLocaleDateString();
+        }
+
+        // --- 鬧鐘觸發邏輯 ---
+        function checkAlarms() {
+            const now = new Date().getTime();
+            
+            state.todos.forEach(todo => {
+                if (!todo.completed && !todo.isEditing) {
+                    const target = new Date(todo.time).getTime();
+                    // 觸發條件：時間到了 且 尚未觸發
+                    if (now >= target && !todo.triggered) {
+                        triggerAlarm(todo);
+                    }
+                }
+            });
+        }
+
+        async function triggerAlarm(todo) {
+            todo.triggered = true; 
+            saveState();
+            
+            // UI
+            const modal = document.getElementById('alarm-modal');
+            document.getElementById('alarm-title').textContent = todo.title;
+            document.getElementById('alarm-time').textContent = new Date().toLocaleTimeString();
+            modal.classList.remove('hidden');
+
+            // Sound
+            await playSound(todo.soundId, true);
+        }
+
+        function stopAlarm() {
+            // Stop Audio
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+                currentAudio = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+
+            // Close Modal
+            document.getElementById('alarm-modal').classList.add('hidden');
+            renderList(); // Refresh list to show red status
+        }
+
+        // --- 音訊系統 ---
+        async function playSound(soundId, loop = false) {
+            // Stop previous
+            if (currentAudio) { currentAudio.pause(); }
+            if (audioContext) { audioContext.close(); audioContext = null; }
+
+            // Check if Custom
+            const isCustom = state.customSoundMeta.find(s => s.id === soundId);
+
+            if (isCustom) {
+                try {
+                    const blob = await getSoundFromDB(soundId);
+                    if (blob) {
+                        const url = URL.createObjectURL(blob);
+                        currentAudio = new Audio(url);
+                        currentAudio.loop = loop;
+                        await currentAudio.play();
+                    } else {
+                        console.warn("Sound file not found in DB, using backup beep.");
+                        playSyntheticSound('def-1', loop);
+                    }
+                } catch (e) {
+                    console.error("Play custom error:", e);
+                    playSyntheticSound('def-1', loop); // Fallback
+                }
+            } else {
+                playSyntheticSound(soundId, loop);
+            }
+        }
+
+        function playSyntheticSound(id, loop) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioContext = new AudioContext();
+            
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+
+            const now = audioContext.currentTime;
+
+            // Simple Synthesis Logic
+            switch(id) {
+                case 'def-1': osc.type = 'square'; osc.frequency.setValueAtTime(440, now); osc.frequency.setValueAtTime(880, now+0.5); break;
+                case 'def-2': osc.type = 'sawtooth'; osc.frequency.setValueAtTime(600, now); gain.gain.exponentialRampToValueAtTime(0.01, now+0.5); break;
+                case 'def-3': osc.type = 'sine'; osc.frequency.setValueAtTime(800, now); gain.gain.exponentialRampToValueAtTime(0.001, now+1); break;
+                case 'def-4': osc.type = 'sawtooth'; osc.frequency.setValueAtTime(1000, now); osc.frequency.linearRampToValueAtTime(500, now+0.5); break;
+                case 'def-5': osc.type = 'square'; osc.frequency.setValueAtTime(200, now); osc.frequency.linearRampToValueAtTime(800, now+0.2); break;
+                default: osc.type = 'triangle'; osc.frequency.setValueAtTime(440, now);
+            }
+
+            if (loop) {
+                osc.start();
+                // Loop simulation via LFO volume
+                const lfo = audioContext.createOscillator();
+                lfo.type = 'square';
+                lfo.frequency.value = 2; 
+                const lfoGain = audioContext.createGain();
+                lfoGain.gain.value = 0.8;
+                lfo.connect(gain.gain);
+                lfo.start();
+            } else {
+                osc.start();
+                osc.stop(now + 1);
+            }
+        }
+
+        // --- 檔案上傳 (支援 10MB) ---
+        async function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const spinner = document.getElementById('upload-spinner');
+            
+            // Validation
+            if (state.customSoundMeta.length >= MAX_CUSTOM_SOUNDS) {
+                alert("已達到自訂音效數量上限 (20個)。請先刪除舊的。");
+                e.target.value = '';
+                return;
+            }
+            if (file.size > MAX_FILE_SIZE) {
+                alert(`檔案過大！上限為 10MB。此檔案大小: ${(file.size/1024/1024).toFixed(2)}MB`);
+                e.target.value = '';
+                return;
+            }
+
+            try {
+                spinner.classList.remove('hidden'); // Show loading
+                
+                const id = 'custom-' + Date.now();
+                
+                // 1. 存入 IndexedDB
+                await saveSoundToDB(id, file);
+
+                // 2. 更新 Metadata 到 LocalStorage
+                state.customSoundMeta.push({
+                    id: id,
+                    name: file.name.substring(0, 20)
+                });
+                saveState();
+
+                // 3. UI 更新
+                renderSoundOptions();
+                renderCustomSoundList();
+                e.target.value = '';
+                
+            } catch (err) {
+                console.error("Upload error:", err);
+                alert("儲存檔案失敗，請確保瀏覽器允許資料儲存。");
+            } finally {
+                spinner.classList.add('hidden');
+            }
+        }
+
+        async function deleteCustomSound(id) {
+            if(!confirm(t('delete') + "?")) return;
+            
+            try {
+                // 1. 刪除 DB
+                await deleteSoundFromDB(id);
+                // 2. 刪除 Meta
+                state.customSoundMeta = state.customSoundMeta.filter(s => s.id !== id);
+                saveState();
+                // 3. UI
+                renderSoundOptions();
+                renderCustomSoundList();
+            } catch (err) {
+                console.error("Delete failed", err);
+            }
+        }
+
+        // --- UI Rendering ---
+        function t(key) { return resources[state.settings.lang][key] || key; }
+
+        function updateTexts() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                el.textContent = t(el.getAttribute('data-i18n'));
+            });
+            document.getElementById('input-title').placeholder = t('labelTitle');
+            document.getElementById('input-group').placeholder = t('labelGroup');
+        }
+
+        function toggleLang() {
+            state.settings.lang = state.settings.lang === 'zh-TW' ? 'en' : 'zh-TW';
+            saveState();
+            applyLang();
+            renderList();
+        }
+
+        function applyLang() { updateTexts(); renderSoundOptions(); }
+
+        function toggleTheme() {
+            state.settings.theme = state.settings.theme === 'light' ? 'dark' : 'light';
+            saveState();
+            applyTheme();
+        }
+
+        function applyTheme() {
+            document.querySelector('html').className = state.settings.theme === 'dark' ? 'dark' : 'light';
+        }
+
+        function renderSoundOptions() {
+            const select = document.getElementById('input-sound');
+            const currentVal = select.value;
+            select.innerHTML = '';
+
+            const grp1 = document.createElement('optgroup');
+            grp1.label = t('soundDefault');
+            defaultSounds.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.name;
+                grp1.appendChild(opt);
+            });
+            select.appendChild(grp1);
+
+            if (state.customSoundMeta.length > 0) {
+                const grp2 = document.createElement('optgroup');
+                grp2.label = t('soundCustom');
+                state.customSoundMeta.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = "♫ " + s.name;
+                    grp2.appendChild(opt);
+                });
+                select.appendChild(grp2);
+            }
+            
+            // 保持選擇狀態
+            if (currentVal && (defaultSounds.some(s=>s.id===currentVal) || state.customSoundMeta.some(s=>s.id===currentVal))) {
+                select.value = currentVal;
+            }
+        }
+
+        function renderCustomSoundList() {
+            const list = document.getElementById('custom-sound-list');
+            list.innerHTML = '';
+            state.customSoundMeta.forEach(s => {
+                const li = document.createElement('li');
+                li.className = "flex justify-between items-center bg-white dark:bg-gray-800 p-2 rounded shadow-sm border dark:border-gray-700";
+                li.innerHTML = `
+                    <div class="flex items-center overflow-hidden">
+                        <span class="mr-2">🎵</span>
+                        <span class="truncate">${s.name}</span>
+                    </div>
+                    <div class="flex shrink-0">
+                        <button onclick="playSound('${s.id}')" class="text-blue-500 hover:text-blue-700 font-bold px-2 text-xs">▶</button>
+                        <button onclick="deleteCustomSound('${s.id}')" class="text-red-500 hover:text-red-700 font-bold px-2">×</button>
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        // --- 待辦功能 (CRUD) ---
+        document.getElementById('todo-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const title = document.getElementById('input-title').value;
+            const group = document.getElementById('input-group').value;
+            const time = document.getElementById('input-time').value;
+            const soundId = document.getElementById('input-sound').value;
+
+            if (!time) return;
+
+            const newTodo = {
+                id: Date.now(),
+                title,
+                group: group || 'General',
+                time,
+                soundId,
+                triggered: false,
+                isEditing: false
+            };
+
+            state.todos.push(newTodo);
+            state.todos.sort((a,b) => new Date(a.time) - new Date(b.time));
+            saveState();
+            renderList();
+            
+            document.getElementById('input-title').value = '';
+        });
+
+        function addPreset(type) {
+            const now = new Date();
+            let h=0, m=0, title="";
+            switch(type) {
+                case 'school': title=t('p_school'); h=7; m=30; break;
+                case 'breakfast': title=t('p_breakfast'); h=8; m=0; break;
+                case 'lunch': title=t('p_lunch'); h=12; m=0; break;
+                case 'dinner': title=t('p_dinner'); h=18; m=30; break;
+            }
+            const target = new Date();
+            target.setHours(h, m, 0, 0);
+            if (target < now) target.setDate(target.getDate() + 1);
+
+            document.getElementById('input-title').value = title;
+            document.getElementById('input-time').value = toLocalISOString(target);
+            document.getElementById('input-group').value = "Life";
+        }
+
+        function renderList() {
+            const list = document.getElementById('todo-list');
+            list.innerHTML = '';
+            document.getElementById('list-count').textContent = state.todos.length;
+
+            state.todos.forEach(todo => {
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-xl shadow border-l-4 transition transform hover:scale-[1.01] ${todo.triggered ? 'bg-red-50 border-red-500 dark:bg-red-900/20' : 'bg-white border-primary dark:bg-gray-800 dark:border-indigo-500'}`;
+                
+                if (todo.isEditing) {
+                    card.innerHTML = `
+                        <div class="space-y-2">
+                            <input id="edit-title-${todo.id}" type="text" value="${todo.title}" class="w-full p-2 border rounded dark:bg-gray-700">
+                            <input id="edit-time-${todo.id}" type="datetime-local" step="1" value="${todo.time}" class="w-full p-2 border rounded dark:bg-gray-700">
+                            <div class="flex gap-2 justify-end">
+                                <button onclick="saveEdit(${todo.id})" class="bg-green-500 text-white px-3 py-1 rounded text-sm">${t('save')}</button>
+                                <button onclick="cancelEdit(${todo.id})" class="bg-gray-400 text-white px-3 py-1 rounded text-sm">Cancel</button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    const targetDate = new Date(todo.time);
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div class="overflow-hidden">
+                                <span class="text-xs font-bold uppercase tracking-wider text-gray-400">${t('group')} ${todo.group}</span>
+                                <h3 class="text-xl font-bold truncate ${todo.triggered ? 'text-red-600' : 'text-gray-800 dark:text-gray-100'}">${todo.title}</h3>
+                                <p class="text-sm text-gray-500 mt-1">⏰ ${targetDate.toLocaleString()}</p>
+                            </div>
+                            <div class="flex gap-2 shrink-0">
+                                <button onclick="toggleEdit(${todo.id})" class="text-gray-400 hover:text-blue-500 p-1">✏️</button>
+                                <button onclick="deleteTodo(${todo.id})" class="text-gray-400 hover:text-red-500 p-1">🗑️</button>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-3 border-t dark:border-gray-700 flex justify-between items-end">
+                             <div>
+                                <span class="text-xs text-gray-400">${t('remaining')}</span>
+                                <div id="countdown-${todo.id}" class="text-2xl font-mono font-bold text-primary dark:text-indigo-400">--:--:--</div>
+                             </div>
+                             ${todo.triggered ? `<span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded animate-pulse">ALARM</span>` : ''}
+                        </div>
+                    `;
+                }
+                list.appendChild(card);
+            });
+            updateCountdowns();
+        }
+
+        function updateCountdowns() {
+            const now = new Date().getTime();
+            state.todos.forEach(todo => {
+                const el = document.getElementById(`countdown-${todo.id}`);
+                if (el && !todo.isEditing) {
+                    const target = new Date(todo.time).getTime();
+                    const diff = target - now;
+                    if (diff <= 0) {
+                        el.textContent = t('overdue');
+                        el.classList.add('text-red-500');
+                    } else {
+                        const h = Math.floor(diff / 3600000);
+                        const m = Math.floor((diff % 3600000) / 60000);
+                        const s = Math.floor((diff % 60000) / 1000);
+                        el.textContent = `${h}h ${m}m ${s}s`;
+                        el.classList.remove('text-red-500');
+                    }
+                }
+            });
+        }
+
+        function toggleEdit(id) {
+            const todo = state.todos.find(t => t.id === id);
+            if(todo) { todo.isEditing = true; renderList(); }
+        }
+        function cancelEdit(id) {
+            const todo = state.todos.find(t => t.id === id);
+            if(todo) { todo.isEditing = false; renderList(); }
+        }
+        function saveEdit(id) {
+            const todo = state.todos.find(t => t.id === id);
+            const newTitle = document.getElementById(`edit-title-${id}`).value;
+            const newTime = document.getElementById(`edit-time-${id}`).value;
+            if (todo && newTitle && newTime) {
+                todo.title = newTitle;
+                todo.time = newTime;
+                todo.triggered = false;
+                todo.isEditing = false;
+                state.todos.sort((a,b) => new Date(a.time) - new Date(b.time));
+                saveState();
+                renderList();
+            }
+        }
+        function deleteTodo(id) {
+            if(confirm(t('delete')+"?")) {
+                state.todos = state.todos.filter(t => t.id !== id);
+                saveState();
+                renderList();
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
