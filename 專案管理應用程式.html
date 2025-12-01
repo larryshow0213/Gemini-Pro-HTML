@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow Pro | 高效專案管理系統</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8'
+                        },
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                        dark: {
+                            bg: '#0f172a',
+                            surface: '#1e293b',
+                            border: '#334155'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* 隱藏預設滾動條但保持功能 (Chrome/Safari/Webkit) */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569; 
+        }
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #64748b; 
+        }
+
+        /* 拖曳時的樣式 */
+        .dragging {
+            opacity: 0.5;
+            transform: scale(0.98);
+            border: 2px dashed #3b82f6;
+        }
+
+        /* 拖曳目標區域高亮 */
+        .drag-over {
+            background-color: rgba(59, 130, 246, 0.1);
+            border-radius: 0.5rem;
+        }
+
+        /* Toast 動畫 */
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .toast-enter {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans transition-colors duration-300 dark:bg-dark-bg dark:text-gray-200 overflow-hidden h-screen flex">
+
+    <aside class="w-64 bg-white dark:bg-dark-surface border-r border-gray-200 dark:border-dark-border flex flex-col transition-colors duration-300 hidden md:flex">
+        <div class="h-16 flex items-center px-6 border-b border-gray-200 dark:border-dark-border">
+            <div class="flex items-center gap-2 text-primary-600 dark:text-primary-500 font-bold text-xl">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <span>TaskFlow</span>
+            </div>
+        </div>
+
+        <nav class="flex-1 px-4 py-6 space-y-2">
+            <button onclick="app.switchView('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-400 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                儀表板總覽
+            </button>
+            <button onclick="app.switchView('board')" id="nav-board" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path></svg>
+                任務看板
+            </button>
+        </nav>
+
+        <div class="p-4 border-t border-gray-200 dark:border-dark-border">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-primary-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                    ME
+                </div>
+                <div>
+                    <p class="text-sm font-semibold dark:text-white">Admin User</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">admin@taskflow.pro</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-hidden">
+        <header class="h-16 bg-white dark:bg-dark-surface border-b border-gray-200 dark:border-dark-border flex items-center justify-between px-6 transition-colors duration-300">
+            <button class="md:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+
+            <div class="flex items-center gap-4">
+                <h2 id="page-title" class="text-xl font-bold text-gray-800 dark:text-white hidden md:block">儀表板總覽</h2>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button onclick="app.toggleTheme()" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors" title="切換主題">
+                    <svg id="theme-icon-sun" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    <svg id="theme-icon-moon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 24.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                </button>
+                <button onclick="app.openModal()" class="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-md hover:shadow-lg">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    新增任務
+                </button>
+            </div>
+        </header>
+
+        <div id="content-body" class="flex-1 overflow-auto bg-gray-50 dark:bg-dark-bg p-6 relative">
+            
+            <div id="view-dashboard" class="space-y-6 animate-fade-in">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="bg-white dark:bg-dark-surface p-5 rounded-xl border border-gray-100 dark:border-dark-border shadow-sm">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">總任務數</p>
+                                <h3 class="text-2xl font-bold mt-1 dark:text-white" id="stat-total">0</h3>
+                            </div>
+                            <div class="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-dark-surface p-5 rounded-xl border border-gray-100 dark:border-dark-border shadow-sm">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">待辦事項 (Todo)</p>
+                                <h3 class="text-2xl font-bold mt-1 dark:text-white" id="stat-todo">0</h3>
+                            </div>
+                            <div class="p-2 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg text-yellow-600 dark:text-yellow-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-dark-surface p-5 rounded-xl border border-gray-100 dark:border-dark-border shadow-sm">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">進行中 (In Progress)</p>
+                                <h3 class="text-2xl font-bold mt-1 dark:text-white" id="stat-progress">0</h3>
+                            </div>
+                            <div class="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-dark-surface p-5 rounded-xl border border-gray-100 dark:border-dark-border shadow-sm">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">已完成 (Done)</p>
+                                <h3 class="text-2xl font-bold mt-1 text-success" id="stat-done">0</h3>
+                            </div>
+                            <div class="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-dark-surface rounded-xl border border-gray-200 dark:border-dark-border shadow-sm">
+                    <div class="p-6 border-b border-gray-200 dark:border-dark-border flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-white">高優先級待處理任務</h3>
+                        <button onclick="app.switchView('board')" class="text-sm text-primary-600 hover:underline">前往看板</button>
+                    </div>
+                    <div class="p-0 overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-dark-border">
+                                    <th class="px-6 py-4 font-medium uppercase">任務標題</th>
+                                    <th class="px-6 py-4 font-medium uppercase">狀態</th>
+                                    <th class="px-6 py-4 font-medium uppercase">截止日期</th>
+                                    <th class="px-6 py-4 font-medium uppercase">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashboard-table-body" class="text-sm">
+                                </tbody>
+                        </table>
+                        <div id="empty-state-dash" class="hidden p-8 text-center text-gray-400">
+                            暫無高優先級任務
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-board" class="hidden h-full flex flex-col">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex gap-2">
+                        <input type="text" id="search-input" placeholder="搜尋任務..." class="bg-white dark:bg-dark-surface border border-gray-300 dark:border-dark-border text-sm rounded-lg px-4 py-2 w-64 focus:ring-2 focus:ring-primary-500 outline-none transition dark:text-white">
+                    </div>
+                    <button onclick="app.clearAllData()" class="text-xs text-red-500 hover:text-red-700 underline">重置所有資料</button>
+                </div>
+
+                <div class="flex-1 overflow-x-auto overflow-y-hidden">
+                    <div class="flex h-full gap-6 min-w-full pb-2">
+                        <div class="w-80 flex-shrink-0 flex flex-col bg-gray-100 dark:bg-[#161f32] rounded-xl border border-gray-200 dark:border-dark-border h-full max-h-full">
+                            <div class="p-4 flex items-center justify-between">
+                                <h3 class="font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full bg-gray-400"></span> 待辦事項
+                                    <span id="count-todo" class="ml-2 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs px-2 py-0.5 rounded-full">0</span>
+                                </h3>
+                            </div>
+                            <div class="flex-1 overflow-y-auto p-3 space-y-3 kanban-column" id="col-todo" ondrop="app.drop(event, 'todo')" ondragover="app.allowDrop(event)">
+                                </div>
+                        </div>
+
+                        <div class="w-80 flex-shrink-0 flex flex-col bg-blue-50/50 dark:bg-[#16203c] rounded-xl border border-blue-100 dark:border-blue-900/30 h-full max-h-full">
+                            <div class="p-4 flex items-center justify-between">
+                                <h3 class="font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full bg-blue-500"></span> 進行中
+                                    <span id="count-progress" class="ml-2 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full">0</span>
+                                </h3>
+                            </div>
+                            <div class="flex-1 overflow-y-auto p-3 space-y-3 kanban-column" id="col-progress" ondrop="app.drop(event, 'progress')" ondragover="app.allowDrop(event)">
+                                </div>
+                        </div>
+
+                        <div class="w-80 flex-shrink-0 flex flex-col bg-green-50/50 dark:bg-[#142828] rounded-xl border border-green-100 dark:border-green-900/30 h-full max-h-full">
+                            <div class="p-4 flex items-center justify-between">
+                                <h3 class="font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full bg-green-500"></span> 已完成
+                                    <span id="count-done" class="ml-2 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 text-xs px-2 py-0.5 rounded-full">0</span>
+                                </h3>
+                            </div>
+                            <div class="flex-1 overflow-y-auto p-3 space-y-3 kanban-column" id="col-done" ondrop="app.drop(event, 'done')" ondragover="app.allowDrop(event)">
+                                </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="task-modal" class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-sm flex items-center justify-center transition-opacity opacity-0">
+        <div class="bg-white dark:bg-dark-surface w-full max-w-md rounded-2xl shadow-2xl transform scale-95 transition-transform duration-200" id="modal-content">
+            <div class="flex justify-between items-center p-6 border-b border-gray-100 dark:border-dark-border">
+                <h3 class="text-xl font-bold text-gray-800 dark:text-white" id="modal-title">新增任務</h3>
+                <button onclick="app.closeModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form id="task-form" onsubmit="app.saveTask(event)" class="p-6 space-y-4">
+                <input type="hidden" id="task-id">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">標題</label>
+                    <input type="text" id="input-title" required class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-dark-border bg-white dark:bg-dark-bg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none" placeholder="輸入任務標題...">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">描述</label>
+                    <textarea id="input-desc" rows="3" class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-dark-border bg-white dark:bg-dark-bg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none" placeholder="任務詳細內容..."></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">優先級</label>
+                        <select id="input-priority" class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-dark-border bg-white dark:bg-dark-bg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none">
+                            <option value="low">低 (Low)</option>
+                            <option value="medium" selected>中 (Medium)</option>
+                            <option value="high">高 (High)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">截止日期</label>
+                        <input type="date" id="input-date" class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-dark-border bg-white dark:bg-dark-bg text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none">
+                    </div>
+                </div>
+                
+                <input type="hidden" id="input-status" value="todo">
+
+                <div class="pt-4 flex justify-end gap-3">
+                    <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 transition">取消</button>
+                    <button type="submit" class="px-6 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium shadow-lg shadow-blue-500/30 transition">儲存任務</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        /**
+         * TaskFlow Pro Core Logic
+         * 使用單例模式組織程式碼，避免全域污染
+         */
+        const app = (() => {
+            // State
+            let tasks = [];
+            let currentView = 'dashboard';
+            const STORAGE_KEY = 'taskflow_data';
+            const THEME_KEY = 'taskflow_theme';
+
+            // DOM Elements Cache
+            const dom = {
+                views: {
+                    dashboard: document.getElementById('view-dashboard'),
+                    board: document.getElementById('view-board')
+                },
+                navs: {
+                    dashboard: document.getElementById('nav-dashboard'),
+                    board: document.getElementById('nav-board')
+                },
+                cols: {
+                    todo: document.getElementById('col-todo'),
+                    progress: document.getElementById('col-progress'),
+                    done: document.getElementById('col-done')
+                },
+                stats: {
+                    total: document.getElementById('stat-total'),
+                    todo: document.getElementById('stat-todo'),
+                    progress: document.getElementById('stat-progress'),
+                    done: document.getElementById('stat-done'),
+                    table: document.getElementById('dashboard-table-body'),
+                    empty: document.getElementById('empty-state-dash')
+                },
+                counts: {
+                    todo: document.getElementById('count-todo'),
+                    progress: document.getElementById('count-progress'),
+                    done: document.getElementById('count-done')
+                },
+                modal: {
+                    overlay: document.getElementById('task-modal'),
+                    content: document.getElementById('modal-content'),
+                    title: document.getElementById('modal-title'),
+                    form: document.getElementById('task-form'),
+                    inputs: {
+                        id: document.getElementById('task-id'),
+                        title: document.getElementById('input-title'),
+                        desc: document.getElementById('input-desc'),
+                        priority: document.getElementById('input-priority'),
+                        date: document.getElementById('input-date'),
+                        status: document.getElementById('input-status')
+                    }
+                },
+                pageTitle: document.getElementById('page-title'),
+                searchInput: document.getElementById('search-input'),
+                themeIcons: {
+                    sun: document.getElementById('theme-icon-sun'),
+                    moon: document.getElementById('theme-icon-moon')
+                }
+            };
+
+            // === Initialization ===
+            function init() {
+                loadData();
+                loadTheme();
+                setupEventListeners();
+                render();
+            }
+
+            function loadData() {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) {
+                    tasks = JSON.parse(stored);
+                } else {
+                    // Default seed data for first visit
+                    tasks = [
+                        { id: generateId(), title: '歡迎使用 TaskFlow', desc: '試著拖曳這個卡片到其他欄位！', priority: 'high', status: 'todo', date: new Date().toISOString().split('T')[0] },
+                        { id: generateId(), title: '體驗深色模式', desc: '點擊右上角的月亮圖示切換主題', priority: 'medium', status: 'progress', date: '' },
+                        { id: generateId(), title: '完成專案設置', desc: '這是一個已完成的任務範例', priority: 'low', status: 'done', date: '2023-11-01' }
+                    ];
+                    saveData();
+                }
+            }
+
+            function saveData() {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+                render();
+            }
+
+            function setupEventListeners() {
+                dom.searchInput.addEventListener('input', (e) => {
+                    renderBoard(e.target.value);
+                });
+            }
+
+            // === Theme Management ===
+            function loadTheme() {
+                const isDark = localStorage.getItem(THEME_KEY) === 'dark' || 
+                               (!('taskflow_theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                applyTheme(isDark);
+            }
+
+            function toggleTheme() {
+                const isDark = document.documentElement.classList.contains('dark');
+                applyTheme(!isDark);
+            }
+
+            function applyTheme(isDark) {
+                if (isDark) {
+                    document.documentElement.classList.add('dark');
+                    dom.themeIcons.sun.classList.remove('hidden');
+                    dom.themeIcons.moon.classList.add('hidden');
+                    localStorage.setItem(THEME_KEY, 'dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    dom.themeIcons.sun.classList.add('hidden');
+                    dom.themeIcons.moon.classList.remove('hidden');
+                    localStorage.setItem(THEME_KEY, 'light');
+                }
+            }
+
+            // === Navigation ===
+            function switchView(viewName) {
+                currentView = viewName;
+                
+                // Toggle Views
+                if (viewName === 'dashboard') {
+                    dom.views.dashboard.classList.remove('hidden');
+                    dom.views.board.classList.add('hidden');
+                    
+                    dom.navs.dashboard.classList.add('bg-primary-50', 'text-primary-700', 'dark:bg-primary-900/20', 'dark:text-primary-400');
+                    dom.navs.dashboard.classList.remove('text-gray-600', 'hover:bg-gray-100', 'dark:text-gray-400');
+                    
+                    dom.navs.board.classList.remove('bg-primary-50', 'text-primary-700', 'dark:bg-primary-900/20', 'dark:text-primary-400');
+                    dom.navs.board.classList.add('text-gray-600', 'hover:bg-gray-100', 'dark:text-gray-400');
+                    
+                    dom.pageTitle.textContent = '儀表板總覽';
+                    renderDashboard();
+                } else {
+                    dom.views.dashboard.classList.add('hidden');
+                    dom.views.board.classList.remove('hidden');
+
+                    dom.navs.board.classList.add('bg-primary-50', 'text-primary-700', 'dark:bg-primary-900/20', 'dark:text-primary-400');
+                    dom.navs.board.classList.remove('text-gray-600', 'hover:bg-gray-100', 'dark:text-gray-400');
+
+                    dom.navs.dashboard.classList.remove('bg-primary-50', 'text-primary-700', 'dark:bg-primary-900/20', 'dark:text-primary-400');
+                    dom.navs.dashboard.classList.add('text-gray-600', 'hover:bg-gray-100', 'dark:text-gray-400');
+
+                    dom.pageTitle.textContent = '任務看板';
+                    renderBoard();
+                }
+            }
+
+            // === Rendering ===
+            function render() {
+                if (currentView === 'dashboard') renderDashboard();
+                renderBoard(); // Always update board counters
+            }
+
+            function renderDashboard() {
+                // Stats
+                const total = tasks.length;
+                const todo = tasks.filter(t => t.status === 'todo').length;
+                const progress = tasks.filter(t => t.status === 'progress').length;
+                const done = tasks.filter(t => t.status === 'done').length;
+
+                dom.stats.total.innerText = total;
+                dom.stats.todo.innerText = todo;
+                dom.stats.progress.innerText = progress;
+                dom.stats.done.innerText = done;
+
+                // High Priority Table
+                const highPriorityTasks = tasks.filter(t => t.priority === 'high' && t.status !== 'done');
+                dom.stats.table.innerHTML = '';
+                
+                if (highPriorityTasks.length === 0) {
+                    dom.stats.empty.classList.remove('hidden');
+                } else {
+                    dom.stats.empty.classList.add('hidden');
+                    highPriorityTasks.forEach(task => {
+                        const tr = document.createElement('tr');
+                        tr.className = 'border-b border-gray-50 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-gray-800/50 transition';
+                        tr.innerHTML = `
+                            <td class="px-6 py-4 font-medium text-gray-900 dark:text-gray-200">${task.title}</td>
+                            <td class="px-6 py-4">${getStatusBadge(task.status)}</td>
+                            <td class="px-6 py-4 text-gray-500">${task.date || '-'}</td>
+                            <td class="px-6 py-4">
+                                <button onclick="app.editTask('${task.id}')" class="text-primary-600 hover:text-primary-800 text-xs font-bold">編輯</button>
+                            </td>
+                        `;
+                        dom.stats.table.appendChild(tr);
+                    });
+                }
+            }
+
+            function renderBoard(searchTerm = '') {
+                // Clear columns
+                dom.cols.todo.innerHTML = '';
+                dom.cols.progress.innerHTML = '';
+                dom.cols.done.innerHTML = '';
+
+                let counts = { todo: 0, progress: 0, done: 0 };
+
+                const filteredTasks = tasks.filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase()));
+
+                filteredTasks.forEach(task => {
+                    counts[task.status]++;
+                    const card = createCardElement(task);
+                    dom.cols[task.status].appendChild(card);
+                });
+
+                // Update Counts
+                dom.counts.todo.innerText = counts.todo;
+                dom.counts.progress.innerText = counts.progress;
+                dom.counts.done.innerText = counts.done;
+            }
+
+            function createCardElement(task) {
+                const div = document.createElement('div');
+                div.className = 'bg-white dark:bg-dark-surface p-4 rounded-lg shadow-sm border border-gray-200 dark:border-dark-border cursor-move hover:shadow-md transition group relative';
+                div.draggable = true;
+                div.id = `task-${task.id}`;
+                
+                // Drag Events
+                div.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', task.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                    setTimeout(() => div.classList.add('dragging'), 0);
+                });
+                div.addEventListener('dragend', () => {
+                    div.classList.remove('dragging');
+                    removeDragOverStyles();
+                });
+
+                // Priority Color
+                let priorityClass = 'bg-gray-100 text-gray-600';
+                if(task.priority === 'high') priorityClass = 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
+                if(task.priority === 'medium') priorityClass = 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300';
+                if(task.priority === 'low') priorityClass = 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+
+                div.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-bold px-2 py-0.5 rounded ${priorityClass} uppercase scale-90 origin-left">${task.priority}</span>
+                        <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                            <button onclick="app.editTask('${task.id}')" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                            </button>
+                            <button onclick="app.deleteTask('${task.id}')" class="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-500">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <h4 class="font-bold text-gray-800 dark:text-gray-100 mb-1 text-sm leading-tight">${task.title}</h4>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-3">${task.desc || '無描述'}</p>
+                    <div class="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        ${task.date || '無截止日'}
+                    </div>
+                `;
+                return div;
+            }
+
+            function getStatusBadge(status) {
+                const classes = {
+                    todo: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+                    progress: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+                    done: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                };
+                const labels = { todo: '待辦', progress: '進行中', done: '完成' };
+                return `<span class="px-2 py-1 rounded text-xs font-bold ${classes[status]}">${labels[status]}</span>`;
+            }
+
+            // === Drag & Drop ===
+            function allowDrop(ev) {
+                ev.preventDefault();
+                const col = ev.currentTarget;
+                // Add visual cue
+                document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+                col.classList.add('drag-over');
+            }
+
+            function removeDragOverStyles() {
+                document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            }
+
+            function drop(ev, newStatus) {
+                ev.preventDefault();
+                removeDragOverStyles();
+                const id = ev.dataTransfer.getData('text/plain');
+                const task = tasks.find(t => t.id === id);
+                
+                if (task && task.status !== newStatus) {
+                    task.status = newStatus;
+                    saveData();
+                    showToast(`任務移動至：${newStatus === 'todo' ? '待辦' : newStatus === 'progress' ? '進行中' : '已完成'}`, 'success');
+                }
+            }
+
+            // === CRUD Operations ===
+            function openModal(taskId = null) {
+                dom.modal.overlay.classList.remove('hidden');
+                // Small delay to allow display:block to apply before opacity transition
+                setTimeout(() => {
+                    dom.modal.overlay.classList.remove('opacity-0');
+                    dom.modal.content.classList.remove('scale-95');
+                    dom.modal.content.classList.add('scale-100');
+                }, 10);
+
+                if (taskId) {
+                    const task = tasks.find(t => t.id === taskId);
+                    dom.modal.title.innerText = '編輯任務';
+                    dom.modal.inputs.id.value = task.id;
+                    dom.modal.inputs.title.value = task.title;
+                    dom.modal.inputs.desc.value = task.desc;
+                    dom.modal.inputs.priority.value = task.priority;
+                    dom.modal.inputs.date.value = task.date;
+                    dom.modal.inputs.status.value = task.status;
+                } else {
+                    dom.modal.title.innerText = '新增任務';
+                    dom.modal.form.reset();
+                    dom.modal.inputs.id.value = '';
+                    // Default values
+                    dom.modal.inputs.priority.value = 'medium';
+                    dom.modal.inputs.status.value = 'todo';
+                }
+            }
+
+            function closeModal() {
+                dom.modal.overlay.classList.add('opacity-0');
+                dom.modal.content.classList.remove('scale-100');
+                dom.modal.content.classList.add('scale-95');
+                setTimeout(() => {
+                    dom.modal.overlay.classList.add('hidden');
+                }, 200);
+            }
+
+            function saveTask(e) {
+                e.preventDefault();
+                const id = dom.modal.inputs.id.value;
+                const taskData = {
+                    title: dom.modal.inputs.title.value,
+                    desc: dom.modal.inputs.desc.value,
+                    priority: dom.modal.inputs.priority.value,
+                    date: dom.modal.inputs.date.value,
+                    status: dom.modal.inputs.status.value // Keep existing status if editing
+                };
+
+                if (id) {
+                    // Update
+                    const index = tasks.findIndex(t => t.id === id);
+                    if (index !== -1) {
+                        tasks[index] = { ...tasks[index], ...taskData };
+                        showToast('任務更新成功', 'success');
+                    }
+                } else {
+                    // Create
+                    const newTask = {
+                        id: generateId(),
+                        ...taskData,
+                        status: 'todo' // New tasks always start in todo
+                    };
+                    tasks.push(newTask);
+                    showToast('任務建立成功', 'success');
+                }
+
+                saveData();
+                closeModal();
+            }
+
+            function deleteTask(id) {
+                if(confirm('確定要刪除此任務嗎？')) {
+                    tasks = tasks.filter(t => t.id !== id);
+                    saveData();
+                    showToast('任務已刪除', 'danger');
+                }
+            }
+            
+            function editTask(id) {
+                openModal(id);
+            }
+
+            function clearAllData() {
+                if(confirm('警告：這將會刪除所有本地資料且無法復原！')) {
+                    tasks = [];
+                    saveData();
+                    showToast('所有資料已重置', 'warning');
+                }
+            }
+
+            // === Utilities ===
+            function generateId() {
+                return '_' + Math.random().toString(36).substr(2, 9);
+            }
+
+            function showToast(message, type = 'success') {
+                const container = document.getElementById('toast-container');
+                const div = document.createElement('div');
+                
+                const colors = {
+                    success: 'bg-gray-800 text-white dark:bg-white dark:text-gray-900',
+                    danger: 'bg-red-500 text-white',
+                    warning: 'bg-yellow-500 text-white'
+                };
+
+                div.className = `${colors[type]} px-6 py-3 rounded-lg shadow-xl text-sm font-medium toast-enter pointer-events-auto flex items-center gap-2`;
+                div.innerHTML = `
+                    <span>${message}</span>
+                `;
+
+                container.appendChild(div);
+
+                setTimeout(() => {
+                    div.style.transition = 'all 0.3s ease';
+                    div.style.opacity = '0';
+                    div.style.transform = 'translateY(20px)';
+                    setTimeout(() => div.remove(), 300);
+                }, 3000);
+            }
+
+            // Expose public methods
+            return {
+                init,
+                switchView,
+                openModal,
+                closeModal,
+                saveTask,
+                deleteTask,
+                editTask,
+                drop,
+                allowDrop,
+                toggleTheme,
+                clearAllData
+            };
+        })();
+
+        // Start App
+        document.addEventListener('DOMContentLoaded', app.init);
+
+    </script>
+</body>
+</html>
