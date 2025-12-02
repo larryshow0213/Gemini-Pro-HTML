@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>生活記帳本 | 空間優化版</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Noto Sans TC"', 'sans-serif'] },
+                    animation: {
+                        'pop': 'pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+                    },
+                    keyframes: {
+                        pop: { '0%': { transform: 'scale(0.8)', opacity: '0' }, '100%': { transform: 'scale(1)', opacity: '1' } }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* 全局設定：防止回彈效果，優化滑動體驗 */
+        body { 
+            background-color: #f8fafc; 
+            overscroll-behavior-y: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* 隱藏捲軸但保留功能 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        /* 漸層主題：資產 (藍色系) */
+        .theme-wealth { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); }
+        /* 漸層主題：負債 (紅色系) */
+        .theme-debt { background: linear-gradient(135deg, #881337 0%, #e11d48 100%); }
+
+        /* 底部輸入區：玻璃擬態 + 陰影優化 */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(0,0,0,0.05);
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.08);
+            /* 確保 iPhone 底部橫條不會擋住 */
+            padding-bottom: env(safe-area-inset-bottom, 20px); 
+        }
+
+        /* 浮動卡片陰影 */
+        .float-card-shadow {
+            box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 特效畫布 */
+        #fx-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
+        
+        /* 通知彈窗 */
+        #toast {
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+            transform: translateY(-150%);
+            opacity: 0;
+            z-index: 110;
+        }
+        #toast.show { transform: translateY(20px); opacity: 1; }
+    </style>
+</head>
+<body class="flex justify-center min-h-screen w-full text-slate-800 font-sans">
+
+    <canvas id="fx-canvas"></canvas>
+
+    <div id="toast" class="fixed top-0 left-0 right-0 flex justify-center px-6">
+        <div class="bg-slate-800/95 backdrop-blur text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border border-white/10 max-w-sm w-full">
+            <span class="text-4xl animate-bounce">🎉</span>
+            <div>
+                <p class="text-xs text-yellow-400 font-bold tracking-widest uppercase mb-0.5">LEVEL UP</p>
+                <p class="font-bold text-lg" id="toast-msg">等級提升！</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="w-full max-w-lg bg-slate-50 flex flex-col h-[100dvh] relative shadow-2xl sm:my-0 sm:rounded-none overflow-hidden">
+        
+        <div id="card-bg" class="theme-wealth relative shrink-0 transition-colors duration-700 z-10 rounded-b-[2.5rem] shadow-xl">
+            
+            <div class="px-8 pt-10 pb-20 flex flex-col items-center text-white">
+                
+                <div class="w-full flex justify-between items-center mb-6">
+                    <h1 class="text-lg font-bold tracking-wider opacity-90 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        生活記帳本
+                    </h1>
+                    <button onclick="clearData()" class="bg-white/20 hover:bg-white/30 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors backdrop-blur-sm">
+                        重置
+                    </button>
+                </div>
+
+                <div class="flex flex-col items-center justify-center w-full mb-4">
+                    <p class="text-sm font-medium opacity-70 mb-1 tracking-widest uppercase">Total Assets</p>
+                    <div class="flex items-start justify-center gap-1">
+                        <span class="text-2xl font-bold opacity-80 mt-2">NT$</span>
+                        <span id="balance" class="text-[4.5rem] leading-none font-black tracking-tighter drop-shadow-lg">0</span>
+                    </div>
+                </div>
+
+                <div class="w-full flex flex-col items-center gap-3">
+                    <div class="flex items-center gap-2 bg-black/10 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/5 animate-pop" id="level-container">
+                        <span id="main-icon" class="text-xl">🪙</span>
+                        <span id="level-name" class="text-sm font-bold tracking-wide">銅板起步</span>
+                        <span class="w-px h-3 bg-white/20 mx-1"></span>
+                        <span id="rank-badge" class="text-xs font-mono opacity-80">Lv.1</span>
+                    </div>
+
+                    <div class="w-full max-w-[260px] h-1.5 bg-black/20 rounded-full overflow-hidden">
+                        <div id="xp-bar" class="h-full bg-yellow-400 shadow-[0_0_12px_rgba(253,224,71,0.8)] transition-all duration-700" style="width: 0%"></div>
+                    </div>
+                    <p id="next-level-hint" class="text-[10px] opacity-60 font-mono tracking-wider">NEXT: $800</p>
+                </div>
+
+            </div>
+
+            <div class="absolute -bottom-12 left-6 right-6 h-24 bg-white rounded-3xl float-card-shadow flex items-center divide-x divide-slate-100 z-20">
+                <div class="flex-1 flex flex-col items-center justify-center h-full">
+                    <p class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">本月收入</p>
+                    <p id="money-plus" class="text-emerald-600 font-black text-2xl truncate px-2">+$0</p>
+                </div>
+                <div class="flex-1 flex flex-col items-center justify-center h-full">
+                    <p class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">本月支出</p>
+                    <p id="money-minus" class="text-rose-600 font-black text-2xl truncate px-2">-$0</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto no-scrollbar bg-slate-50 relative z-0">
+            <div class="pt-16 px-6 pb-6">
+                <h3 class="font-bold text-slate-400 text-xs uppercase tracking-widest mb-4 pl-1">近期明細</h3>
+                
+                <ul id="list" class="space-y-4">
+                    </ul>
+
+                <div id="empty-state" class="hidden flex-col items-center justify-center py-16 opacity-40">
+                    <span class="text-6xl mb-4 grayscale">📝</span>
+                    <p class="text-lg font-bold text-slate-500">尚無交易紀錄</p>
+                </div>
+
+                <div class="h-40 w-full"></div> 
+            </div>
+        </div>
+
+        <div class="glass-panel absolute bottom-0 left-0 right-0 z-50 px-5 pt-4">
+            <form id="form" class="max-w-lg mx-auto flex flex-col gap-3">
+                
+                <div class="flex gap-3">
+                    <div class="relative w-1/3">
+                        <input type="date" id="date" class="w-full bg-slate-100 text-slate-700 text-sm font-bold rounded-xl h-11 px-2 text-center outline-none focus:ring-2 focus:ring-blue-500 transition-shadow">
+                    </div>
+                    
+                    <div class="flex-1 bg-slate-100 p-1 rounded-xl flex h-11">
+                        <button type="button" id="btn-exp" onclick="setType('expense')" class="flex-1 rounded-lg text-sm font-bold bg-white text-rose-600 shadow-sm transition-all flex items-center justify-center gap-1">
+                            支出
+                        </button>
+                        <button type="button" id="btn-inc" onclick="setType('income')" class="flex-1 rounded-lg text-sm font-bold text-slate-400 hover:text-slate-600 transition-all flex items-center justify-center gap-1">
+                            收入
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 mb-2">
+                    <input type="text" id="text" placeholder="項目 (例: 午餐)" required autocomplete="off"
+                        class="w-[40%] bg-slate-100 text-slate-800 text-base font-bold rounded-xl px-4 h-14 outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-400 transition-shadow">
+                    
+                    <div class="flex-1 relative">
+                        <input type="number" id="amount" placeholder="0" required min="1" inputmode="numeric"
+                            class="w-full bg-slate-100 text-slate-800 text-2xl font-black rounded-xl pl-3 pr-4 h-14 text-right outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-300 transition-shadow">
+                    </div>
+
+                    <button type="submit" class="bg-slate-900 text-white w-14 h-14 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center shrink-0 hover:bg-slate-800">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // --------------------------------------------------------
+        // 1. 設定
+        // --------------------------------------------------------
+        const MAX_LEVEL = 50;
+        function getThreshold(level) {
+            if (level <= 0) return 0;
+            return 800 * Math.pow(level, 3);
+        }
+
+        const WEALTH_TITLES = [
+            "🪙 銅板起步", "🌱 存錢筒", "🍱 便當加蛋", "🧋 飲料自由", "👟 購買新鞋", 
+            "👔 治裝達人", "📱 換新手機", "🎮 遊戲主機", "💻 高階筆電", "🛵 機車騎士",
+            "💍 輕奢飾品", "🏨 國內旅遊", "📺 家庭劇院", "🐄 名牌包包", "🏎️ 重機車主", 
+            "🚗 國產代步", "✈️ 亞洲旅遊", "💎 珠寶收藏", "🕰️ 名錶入門", "🍷 高級藏酒", 
+            "🌍 歐美旅遊", "🚘 進口房車", "🧱 買房頭期", "🎨 藝術收藏", "🏎️ 超級跑車", 
+            "🚤 私人遊艇", "🏠 擁有房產", "🏘️ 包租公婆", "📈 股市大戶", "🏨 餐廳老闆", 
+            "🏦 銀行VIP",  "🏝️ 海島度假", "🚁 私人飛機", "🏰 莊園主人", "🚀 天使投資", 
+            "👑 企業總裁", "🦁 商業巨擘", "🌏 跨國總裁", "🌟 名流巨星", "💫 財富榜單", 
+            "⚡ 能源大亨", "🏙️ 地產大王", "🤖 科技領袖", "🏦 金融合夥", "🚢 航運龍頭", 
+            "🧬 生技教父", "🛰️ 太空觀光", "🌌 改變世界", "♾️ 財富自由", "🎆 億萬富翁"
+        ];
+
+        const DEBT_TITLES = [
+            "💸 忘記帶錢", "🤏 手頭稍緊", "🍜 泡麵度日", "🌑 月光一族", "💳 卡費循環",
+            "😰 到處借錢", "📉 信用扣分", "🚫 拒絕往來", "🥀 變賣家產", "🏚️ 抵押房產",
+            "🏃 跑路中",   "🕵️ 躲避債主", "📵 斷絕聯繫", "🌧️ 露宿街頭", "🗑️ 資源回收",
+            "🥖 乞討維生", "🌫️ 人間蒸發", "🌑 黑暗籠罩", "🕸️ 絕望深淵", "🦇 吸血鬼餐",
+            "⛓️ 賣身契約", "🏴‍☠️ 被賣海外", "🧟 行屍走肉", "👻 孤魂野鬼", "⚰️ 棺材本無",
+            "🌋 掉入岩漿", "🌪️ 捲入風暴", "🌊 深海沉淪", "🕳️ 無底黑洞", "🧊 絕對零度",
+            "🌚 永夜降臨", "☠️ 地獄入口", "🔥 烈火焚身", "😈 惡魔交易", "👺 靈魂抵押",
+            "🎭 命運傀儡", "🧩 支離破碎", "🧪 實驗白鼠", "🐜 螻蟻不如", "🦠 病毒宿主",
+            "👁️ 邪神注視", "🧠 喪失理智", "🌌 虛空吞噬", "⬛ 奇點坍塌", "🚫 存在抹滅",
+            "🔚 世界盡頭", "❌ 錯誤代碼", "👾 系統崩壞", "🌀 輪迴受難", "💀 億級負債"
+        ];
+
+        // --------------------------------------------------------
+        // 2. 狀態
+        // --------------------------------------------------------
+        let transactions = JSON.parse(localStorage.getItem('sb_final_data')) || [];
+        let currentType = 'expense';
+        let lastLevel = 0;
+
+        // DOM
+        const elBalance = document.getElementById('balance');
+        const elMoneyPlus = document.getElementById('money-plus');
+        const elMoneyMinus = document.getElementById('money-minus');
+        const elList = document.getElementById('list');
+        const elText = document.getElementById('text');
+        const elAmount = document.getElementById('amount');
+        const elDate = document.getElementById('date');
+        const elCardBg = document.getElementById('card-bg');
+        const elLevelName = document.getElementById('level-name');
+        const elMainIcon = document.getElementById('main-icon');
+        const elRankBadge = document.getElementById('rank-badge');
+        const elXpBar = document.getElementById('xp-bar');
+        const elNextHint = document.getElementById('next-level-hint');
+        const elToast = document.getElementById('toast');
+        const btnExp = document.getElementById('btn-exp');
+        const btnInc = document.getElementById('btn-inc');
+
+        function init() {
+            elDate.valueAsDate = new Date();
+            updateUI(false); 
+        }
+
+        function setType(type) {
+            currentType = type;
+            const activeClass = "flex-1 rounded-lg text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-1";
+            const inactiveClass = "flex-1 rounded-lg text-sm font-bold text-slate-400 hover:text-slate-600 transition-all flex items-center justify-center gap-1";
+
+            if(type === 'expense') {
+                btnExp.className = `${activeClass} bg-white text-rose-600`;
+                btnInc.className = inactiveClass;
+            } else {
+                btnInc.className = `${activeClass} bg-white text-emerald-600`;
+                btnExp.className = inactiveClass;
+            }
+            elAmount.focus();
+        }
+
+        function addTransaction(e) {
+            e.preventDefault();
+            const text = elText.value.trim();
+            const val = parseInt(elAmount.value); 
+            if(!text || !val || val <= 0) return;
+
+            const amount = currentType === 'expense' ? -val : val;
+            const transaction = { id: Date.now(), text, amount, date: elDate.value };
+
+            transactions.unshift(transaction);
+            saveData();
+            updateUI(true); 
+            
+            elText.value = '';
+            elAmount.value = '';
+        }
+
+        function removeTransaction(id) {
+            if(confirm('刪除此筆紀錄？')) {
+                transactions = transactions.filter(t => t.id !== id);
+                saveData();
+                updateUI(true);
+            }
+        }
+
+        function clearData() {
+            if(confirm('確定要清除所有資料並重置等級？')) {
+                transactions = [];
+                saveData();
+                updateUI(true);
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('sb_final_data', JSON.stringify(transactions));
+        }
+
+        // --------------------------------------------------------
+        // 3. UI 渲染
+        // --------------------------------------------------------
+        function updateUI(animate) {
+            const amounts = transactions.map(t => t.amount);
+            const total = amounts.reduce((acc, item) => (acc += item), 0);
+            const income = amounts.filter(item => item > 0).reduce((acc, item) => (acc += item), 0);
+            const expense = (amounts.filter(item => item < 0).reduce((acc, item) => (acc += item), 0) * -1);
+
+            // 更新數字
+            elBalance.innerText = formatNumber(total);
+            elMoneyPlus.innerText = `+${formatNumber(income)}`;
+            elMoneyMinus.innerText = `-${formatNumber(expense)}`;
+
+            // --- 等級 ---
+            const isDebt = total < 0;
+            const absTotal = Math.abs(total);
+            
+            let currentLevel = 0;
+            for (let i = 1; i <= MAX_LEVEL; i++) {
+                if (absTotal >= getThreshold(i)) currentLevel = i;
+                else break;
+            }
+            if (currentLevel > MAX_LEVEL) currentLevel = MAX_LEVEL;
+
+            let titleIndex = Math.max(0, currentLevel - 1);
+            if (currentLevel === 0) titleIndex = 0;
+
+            let titleFull = isDebt ? DEBT_TITLES[titleIndex] : WEALTH_TITLES[titleIndex];
+            if(!titleFull) titleFull = "未知等級";
+            
+            let [icon, ...nameArr] = titleFull.split(' ');
+            let name = nameArr.join(' ');
+            if(!name) { name = titleFull; icon = isDebt ? '💸' : '💰'; }
+
+            elRankBadge.innerText = `Lv.${currentLevel}`;
+            elLevelName.innerText = name;
+            elMainIcon.innerText = icon;
+
+            // 進度條
+            let displayLevelForCalc = currentLevel;
+            if (absTotal < getThreshold(1)) displayLevelForCalc = 0;
+
+            const prevThreshold = getThreshold(displayLevelForCalc);
+            const nextThreshold = getThreshold(displayLevelForCalc + 1);
+            
+            let progressPercent = 0;
+            if (displayLevelForCalc >= MAX_LEVEL) {
+                progressPercent = 100;
+                elNextHint.innerText = "MAX LEVEL";
+            } else {
+                const range = nextThreshold - prevThreshold;
+                const progress = absTotal - prevThreshold;
+                progressPercent = (progress / range) * 100;
+                elNextHint.innerText = `NEXT: $${formatNumber(nextThreshold - absTotal)}`;
+            }
+            elXpBar.style.width = `${Math.max(0, Math.min(100, progressPercent))}%`;
+
+            // 主題
+            if (isDebt) {
+                elCardBg.className = 'theme-debt relative shrink-0 transition-colors duration-700 z-10 rounded-b-[2.5rem] shadow-xl';
+            } else {
+                elCardBg.className = 'theme-wealth relative shrink-0 transition-colors duration-700 z-10 rounded-b-[2.5rem] shadow-xl';
+            }
+
+            // 特效
+            if (animate && currentLevel !== lastLevel) {
+                if (currentLevel > lastLevel) {
+                    showToast(`晉升 Lv.${currentLevel} ${name}`);
+                    triggerConfetti(isDebt);
+                }
+                const container = document.getElementById('level-container');
+                container.classList.remove('animate-pop');
+                void container.offsetWidth; 
+                container.classList.add('animate-pop');
+            }
+            lastLevel = currentLevel;
+
+            // 列表
+            renderList();
+        }
+
+        function renderList() {
+            elList.innerHTML = '';
+            if (transactions.length === 0) {
+                document.getElementById('empty-state').classList.remove('hidden');
+                document.getElementById('empty-state').classList.add('flex');
+            } else {
+                document.getElementById('empty-state').classList.add('hidden');
+                document.getElementById('empty-state').classList.remove('flex');
+                
+                transactions.forEach(t => {
+                    const isExp = t.amount < 0;
+                    const color = isExp ? 'text-rose-600' : 'text-emerald-600';
+                    const iconBg = isExp ? 'bg-rose-50 text-rose-500' : 'bg-emerald-50 text-emerald-500';
+                    const icon = isExp ? '💸' : '💰';
+                    
+                    const li = document.createElement('li');
+                    li.className = "flex justify-between items-center bg-white p-5 rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-transform active:scale-[0.99]";
+                    li.innerHTML = `
+                        <div class="flex items-center gap-4 overflow-hidden">
+                            <div class="w-12 h-12 rounded-full ${iconBg} flex items-center justify-center text-2xl shrink-0">
+                                ${icon}
+                            </div>
+                            <div class="min-w-0">
+                                <p class="font-bold text-slate-800 text-lg truncate mb-1">${t.text}</p>
+                                <p class="text-xs text-slate-400 font-bold tracking-wide">${t.date}</p>
+                            </div>
+                        </div>
+                        <div class="text-right pl-3 whitespace-nowrap">
+                            <span class="block font-black ${color} text-xl">${isExp?'':'+'}${formatNumber(t.amount)}</span>
+                            <button onclick="removeTransaction(${t.id})" class="text-xs font-bold text-slate-300 hover:text-rose-500 py-2 px-1 mt-1">刪除</button>
+                        </div>
+                    `;
+                    elList.appendChild(li);
+                });
+            }
+        }
+
+        function formatNumber(num) {
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        function showToast(msg) {
+            document.getElementById('toast-msg').innerText = msg;
+            elToast.classList.add('show');
+            setTimeout(() => elToast.classList.remove('show'), 3500);
+        }
+
+        // Confetti
+        const canvas = document.getElementById('fx-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+
+        function triggerConfetti(isDebt) {
+            const colors = isDebt 
+                ? ['#333', '#111', '#9f1239', '#881337'] 
+                : ['#fbbf24', '#3b82f6', '#34d399', '#818cf8'];
+            for(let i=0; i<80; i++) {
+                particles.push({
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2,
+                    vx: (Math.random() - 0.5) * 20,
+                    vy: (Math.random() - 1) * 20 - 8,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    size: Math.random() * 10 + 5,
+                    life: 100
+                });
+            }
+            if(particles.length <= 80) animateConfetti();
+        }
+
+        function animateConfetti() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles = particles.filter(p => p.life > 0);
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.6;
+                p.vx *= 0.95;
+                p.life--;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            if(particles.length > 0) requestAnimationFrame(animateConfetti);
+        }
+
+        document.getElementById('form').addEventListener('submit', addTransaction);
+        init();
+    </script>
+</body>
+</html>
