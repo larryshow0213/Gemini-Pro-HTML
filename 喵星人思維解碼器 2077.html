@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>喵星人思維解碼器 2077 | Neko-Mind Decoder</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'neon-blue': '#00f3ff',
+                        'neon-pink': '#ff00ff',
+                        'neon-yellow': '#ffe600',
+                        'dark-bg': '#0a0a12',
+                        'panel-bg': '#151520',
+                    },
+                    fontFamily: {
+                        // 使用系統預設無襯線字體搭配等寬字體，確保清晰
+                        sans: ['"Microsoft JhengHei"', 'system-ui', 'sans-serif'],
+                        mono: ['"Consolas"', '"Courier New"', 'monospace'],
+                    },
+                    boxShadow: {
+                        'neon': '0 0 10px rgba(0, 243, 255, 0.5), 0 0 20px rgba(0, 243, 255, 0.3)',
+                        'neon-pink': '0 0 10px rgba(255, 0, 255, 0.5), 0 0 20px rgba(255, 0, 255, 0.3)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* 基礎樣式重置與自訂 */
+        body {
+            background-color: #050505;
+            /* 網格背景圖案 */
+            background-image: 
+                linear-gradient(rgba(0, 243, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* 模擬 CRT 螢幕掃描線 */
+        .scanline {
+            width: 100%;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* 自訂滾動條 */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a1a2e; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #00f3ff; 
+            border-radius: 2px;
+        }
+
+        /* 打字游標閃爍動畫 */
+        .cursor-blink {
+            display: inline-block;
+            width: 10px;
+            height: 1.2em;
+            background-color: #00f3ff;
+            animation: blink 1s step-end infinite;
+            vertical-align: sub;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+    </style>
+</head>
+<body class="text-gray-100 font-sans min-h-screen flex flex-col items-center py-10 px-4">
+
+    <div class="scanline"></div>
+
+    <header class="mb-10 text-center relative z-10">
+        <h1 class="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-neon-blue via-white to-neon-pink drop-shadow-[0_0_15px_rgba(0,243,255,0.6)] tracking-wider">
+            喵星人思維解碼器
+        </h1>
+        <div class="mt-4 flex items-center justify-center gap-2">
+            <span class="px-3 py-1 bg-neon-blue text-black font-bold text-sm rounded">VER 2.0.77</span>
+            <span class="text-neon-blue tracking-widest text-sm font-mono">// NEKO-MIND DECODER //</span>
+        </div>
+    </header>
+
+    <main class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-10">
+        
+        <section class="bg-panel-bg border-2 border-neon-blue rounded-xl p-6 shadow-neon flex flex-col relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-4 h-4 bg-neon-blue"></div>
+            <div class="absolute bottom-0 right-0 w-4 h-4 bg-neon-blue"></div>
+
+            <h2 class="text-2xl font-bold text-neon-blue mb-4 flex items-center">
+                <svg class="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                人類語言輸入端
+            </h2>
+
+            <div class="flex-grow mb-6">
+                <textarea 
+                    id="inputArea" 
+                    class="w-full h-64 bg-black/50 border border-slate-600 rounded-lg p-6 text-xl text-white placeholder-slate-500 focus:outline-none focus:border-neon-blue focus:ring-2 focus:ring-neon-blue/50 transition-all resize-none leading-relaxed"
+                    placeholder="請在此輸入您對貓咪說的話...&#10;例如：「為什麼要把杯子推下去？」"
+                ></textarea>
+            </div>
+
+            <button 
+                id="translateBtn" 
+                onclick="startTranslation()"
+                class="w-full py-5 bg-gradient-to-r from-neon-blue to-blue-600 hover:from-white hover:to-neon-blue text-black font-black text-2xl rounded-lg shadow-lg transform hover:-translate-y-1 transition-all duration-200 active:scale-95 flex items-center justify-center gap-3 uppercase tracking-widest"
+            >
+                <span>啟動神經解碼</span>
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            </button>
+            
+            <div class="mt-3 text-center">
+                <span id="statusText" class="text-slate-400 font-mono text-sm">系統狀態: <span class="text-green-400">待機中</span></span>
+            </div>
+        </section>
+
+        <section class="bg-panel-bg border-2 border-neon-pink rounded-xl p-6 shadow-neon-pink flex flex-col relative">
+            <div class="absolute top-0 right-0 w-4 h-4 bg-neon-pink"></div>
+            <div class="absolute bottom-0 left-0 w-4 h-4 bg-neon-pink"></div>
+
+            <h2 class="text-2xl font-bold text-neon-pink mb-4 flex items-center">
+                <svg class="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                貓腦訊號解析結果
+            </h2>
+
+            <div class="bg-black border border-slate-700 rounded-lg p-5 h-64 overflow-y-auto font-mono text-lg mb-6 shadow-inner" id="terminalContainer">
+                <div id="terminalContent" class="space-y-2">
+                    <div class="text-slate-500">> 等待資料輸入...</div>
+                </div>
+                <div id="typingCursor" class="hidden mt-2"><span class="cursor-blink"></span></div>
+            </div>
+
+            <div id="dashboard" class="mt-auto border-t border-slate-700 pt-6 opacity-30 transition-all duration-700 filter grayscale">
+                <h3 class="text-sm text-slate-400 mb-4 font-mono tracking-widest text-center">--- 生理數值監測 ---</h3>
+                
+                <div class="space-y-5">
+                    <div>
+                        <div class="flex justify-between text-lg font-bold mb-1">
+                            <span class="text-neon-pink">鄙視人類指數</span>
+                            <span id="valDisdain" class="text-white">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-800 h-4 rounded-full overflow-hidden">
+                            <div id="barDisdain" class="h-full bg-neon-pink w-0 transition-all duration-1000 ease-out shadow-[0_0_10px_#ff00ff]"></div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between text-lg font-bold mb-1">
+                            <span class="text-neon-yellow">飢餓程度 (真實度存疑)</span>
+                            <span id="valHunger" class="text-white">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-800 h-4 rounded-full overflow-hidden">
+                            <div id="barHunger" class="h-full bg-neon-yellow w-0 transition-all duration-1000 ease-out shadow-[0_0_10px_#ffe600]"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-lg font-bold mb-1">
+                            <span class="text-neon-blue">凌晨三點跑酷機率</span>
+                            <span id="valZoomies" class="text-white">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-800 h-4 rounded-full overflow-hidden">
+                            <div id="barZoomies" class="h-full bg-neon-blue w-0 transition-all duration-1000 ease-out shadow-[0_0_10px_#00f3ff]"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="mt-12 text-slate-600 font-mono text-sm relative z-10">
+        &copy; 2077 Cyber-Neko Industries. 翻譯僅供參考，主子永遠是對的。
+    </footer>
+
+    <script>
+        // === 資料庫 ===
+        const catSounds = {
+            short: ["喵。", "姆。", "嘖。", "哈氣！"],
+            long: ["喵—————！", "呼嚕呼嚕...", "喵嗷嗚！", "卡...卡...卡..."],
+            angry: ["嘶——！", "哈！", "低吼..."]
+        };
+
+        const innerThoughts = [
+            "這個愚蠢的兩腳獸又在發出奇怪的噪音了。",
+            "我現在不想聽這個，快點把罐頭打開。",
+            "看著我的眼睛，你就知道我是這裡的老大。",
+            "那个红点点到底跑去哪里了？是你藏起来了吗？",
+            "這張沙發看起來很好抓，我等等就要摧毀它。",
+            "我要坐在你的鍵盤上，現在。",
+            "別摸我的肚子！這是陷阱！",
+            "那個像蛇一樣的數據線看起來很好咬。",
+            "既然你這麼誠心誠意地發問了，我就大發慈悲地無視你。",
+            "我的碗中間空了一個洞，即使旁邊有飼料，這也代表我快餓死了。"
+        ];
+
+        // === 取得 DOM 元素 ===
+        const els = {
+            input: document.getElementById('inputArea'),
+            btn: document.getElementById('translateBtn'),
+            status: document.getElementById('statusText'),
+            terminalContainer: document.getElementById('terminalContainer'),
+            terminalContent: document.getElementById('terminalContent'),
+            cursor: document.getElementById('typingCursor'),
+            dashboard: document.getElementById('dashboard'),
+            bars: {
+                disdain: document.getElementById('barDisdain'),
+                hunger: document.getElementById('barHunger'),
+                zoomies: document.getElementById('barZoomies')
+            },
+            vals: {
+                disdain: document.getElementById('valDisdain'),
+                hunger: document.getElementById('valHunger'),
+                zoomies: document.getElementById('valZoomies')
+            }
+        };
+
+        // === 工具函式 ===
+        const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1) + min);
+        const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+        // === 主要邏輯函式 ===
+        async function startTranslation() {
+            const text = els.input.value.trim();
+
+            if (!text) {
+                printLog("錯誤：偵測不到輸入訊號。請說人話。", "text-red-500 font-bold");
+                shakeElement(els.input);
+                return;
+            }
+
+            // 1. 鎖定介面狀態
+            setLoadingState(true);
+            resetDashboard();
+            els.terminalContent.innerHTML = ''; // 清空舊紀錄
+
+            // 2. 模擬運算過程
+            await printLog("> 正在建立神經連結...", "text-neon-blue");
+            await wait(400);
+            await printLog("> 分析人類語音頻率...", "text-neon-blue");
+            await wait(400);
+            await printLog("> 正在繞過貓咪的高傲防火牆...", "text-yellow-400");
+            await wait(600);
+            
+            // 3. 生成結果
+            const translatedMeow = generateMeow(text);
+            const secretThought = randomItem(innerThoughts);
+
+            // 4. 顯示結果 (打字機特效)
+            printLog("--------------------------------", "text-slate-500");
+            await typeWriter(`表層語言: 「${translatedMeow}」`, "text-white text-xl font-bold mb-2");
+            
+            await wait(500);
+            printLog("> 正在進行深層腦波掃描 [DEEP SCAN]...", "text-neon-pink animate-pulse");
+            await wait(1000);
+            
+            await typeWriter(`真實內心話: 『${secretThought}』`, "text-neon-pink text-2xl font-black bg-slate-900/80 p-2 rounded border-l-4 border-neon-pink");
+
+            // 5. 更新儀表板
+            updateDashboard();
+
+            // 6. 解除鎖定
+            setLoadingState(false);
+            printLog("> 解析完成。連線中斷。", "text-slate-500 mt-4");
+        }
+
+        // 產生喵語字串
+        function generateMeow(text) {
+            const len = text.length;
+            let result = "";
+            const loops = Math.max(1, Math.ceil(len / 3)); // 每3個字轉成一聲喵
+
+            for(let i=0; i<loops; i++) {
+                const type = Math.random() > 0.7 ? 'long' : 'short';
+                result += randomItem(catSounds[type]) + " ";
+            }
+            return result;
+        }
+
+        // 終端機輸出單行
+        async function printLog(html, className = "") {
+            const div = document.createElement('div');
+            div.className = className;
+            div.innerHTML = html;
+            els.terminalContent.appendChild(div);
+            scrollToBottom();
+            await wait(100); // 微小延遲讓 UI 跟上
+        }
+
+        // 打字機特效
+        async function typeWriter(text, className = "") {
+            const div = document.createElement('div');
+            div.className = className;
+            els.terminalContent.appendChild(div);
+            
+            // 顯示游標
+            els.cursor.classList.remove('hidden');
+            els.terminalContainer.appendChild(els.cursor); // 把游標移到最下方
+            scrollToBottom();
+
+            for (let char of text) {
+                div.innerHTML += char;
+                // 隨機打字速度
+                await wait(randomInt(30, 80));
+                scrollToBottom();
+            }
+            
+            els.cursor.classList.add('hidden');
+        }
+
+        function scrollToBottom() {
+            els.terminalContainer.scrollTop = els.terminalContainer.scrollHeight;
+        }
+
+        // 儀表板動畫
+        function updateDashboard() {
+            els.dashboard.classList.remove('opacity-30', 'grayscale');
+            els.dashboard.classList.add('opacity-100', 'filter-none');
+
+            // 隨機數值
+            const v1 = randomInt(50, 100); // 鄙視通常很高
+            const v2 = randomInt(10, 100); // 飢餓
+            const v3 = randomInt(0, 100);  // 跑酷
+
+            animateBar(els.bars.disdain, els.vals.disdain, v1);
+            animateBar(els.bars.hunger, els.vals.hunger, v2);
+            animateBar(els.bars.zoomies, els.vals.zoomies, v3);
+        }
+
+        function animateBar(barElem, textElem, percent) {
+            // 先歸零
+            barElem.style.width = '0%';
+            
+            setTimeout(() => {
+                barElem.style.width = `${percent}%`;
+                // 數字跳動效果
+                let current = 0;
+                const interval = setInterval(() => {
+                    if (current >= percent) {
+                        clearInterval(interval);
+                        textElem.innerText = `${percent}%`;
+                    } else {
+                        current++;
+                        textElem.innerText = `${current}%`;
+                    }
+                }, 10);
+            }, 100);
+        }
+
+        function resetDashboard() {
+            els.dashboard.classList.add('opacity-30', 'grayscale');
+            els.dashboard.classList.remove('opacity-100', 'filter-none');
+            
+            Object.values(els.bars).forEach(bar => bar.style.width = '0%');
+            Object.values(els.vals).forEach(val => val.innerText = '0%');
+        }
+
+        // 設定介面狀態 (Loading / Ready)
+        function setLoadingState(isLoading) {
+            if (isLoading) {
+                els.btn.disabled = true;
+                els.input.disabled = true;
+                els.btn.classList.add('opacity-50', 'cursor-not-allowed');
+                els.btn.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 正在運算中...`;
+                els.status.innerHTML = `系統狀態: <span class="text-yellow-400 animate-pulse">解析進行中 [BUSY]</span>`;
+            } else {
+                els.btn.disabled = false;
+                els.input.disabled = false;
+                els.input.focus();
+                els.btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                els.btn.innerHTML = `<span>啟動神經解碼</span><svg class="w-8 h-8 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>`;
+                els.status.innerHTML = `系統狀態: <span class="text-green-400">任務完成 [READY]</span>`;
+            }
+        }
+
+        function shakeElement(element) {
+            element.classList.add('ring-4', 'ring-red-500', 'transition-transform', 'transform', 'translate-x-1');
+            setTimeout(() => {
+                element.classList.remove('translate-x-1', 'ring-4', 'ring-red-500');
+            }, 200);
+        }
+
+        // 初始化
+        window.onload = () => {
+            printLog("> 系統初始化完成。", "text-green-400");
+            printLog("> 請在左側輸入人類語言以開始。", "text-slate-400");
+        };
+
+    </script>
+</body>
+</html>
