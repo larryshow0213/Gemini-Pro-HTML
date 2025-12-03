@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>萬詞王 Pro：專業單字特訓</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0f172a',
+                        accent: '#3b82f6', 
+                        secondary: '#64748b'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; }
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .drag-active {
+            border-color: #3b82f6 !important;
+            background-color: rgba(59, 130, 246, 0.1) !important;
+            transform: scale(1.02);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center pb-12">
+
+    <nav class="w-full bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-50 shadow-lg">
+        <div class="max-w-5xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-accent text-white font-bold h-10 w-10 flex items-center justify-center text-xl rounded-lg shadow-lg">詞</div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight tracking-wide">萬詞王 <span class="text-blue-400">Pro</span></h1>
+                    <p class="text-[10px] text-slate-400">海量預設 & 無限擴充</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <div class="text-right hidden md:block">
+                    <p class="text-xs text-slate-400">詞庫總量</p>
+                    <p id="total-count-display" class="font-mono text-xl font-bold text-blue-400 leading-none">0</p>
+                </div>
+                <button onclick="document.getElementById('upload-modal').classList.remove('hidden')" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-slate-600 flex items-center gap-2 shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    匯入單字
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="w-full max-w-2xl px-4 py-8 flex flex-col gap-6">
+
+        <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div id="progress-bar" class="bg-blue-500 h-1.5 transition-all duration-300" style="width: 0%"></div>
+        </div>
+
+        <div class="flex justify-between items-end px-2">
+            <span id="source-badge" class="bg-blue-900/50 text-blue-300 border border-blue-800 text-xs px-2 py-1 rounded">
+                來源: 核心詞庫 (預設)
+            </span>
+            <span id="counter-text" class="font-mono text-sm text-slate-400">0 / 0</span>
+        </div>
+
+        <div class="w-full h-[420px] relative perspective-1000 group cursor-pointer select-none" id="card-container">
+            <div id="card-inner" class="relative w-full h-full text-center transition-all duration-500 transform-style-3d shadow-2xl rounded-2xl">
+                
+                <div class="absolute w-full h-full backface-hidden bg-slate-800 rounded-2xl border border-slate-700 flex flex-col justify-center items-center p-6 relative overflow-hidden">
+                    <div class="absolute top-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+                    
+                    <h2 id="card-word" class="text-5xl md:text-6xl font-black text-white tracking-tight mb-4 break-words max-w-full z-10">
+                        Loading...
+                    </h2>
+                    
+                    <p class="text-slate-500 text-sm font-mono border border-slate-700 px-3 py-1 rounded-full mb-8">
+                        / 點擊卡片查看解釋 /
+                    </p>
+
+                    <div class="absolute bottom-6 text-slate-500 text-xs flex gap-4">
+                        <span class="flex items-center gap-1"><kbd class="bg-slate-700 px-1 rounded">Space</kbd> 翻轉</span>
+                        <span class="flex items-center gap-1"><kbd class="bg-slate-700 px-1 rounded">←</kbd> <kbd class="bg-slate-700 px-1 rounded">→</kbd> 切換</span>
+                    </div>
+                </div>
+
+                <div class="absolute w-full h-full backface-hidden rotate-y-180 bg-white rounded-2xl border-b-8 border-blue-500 flex flex-col text-left overflow-hidden">
+                    <div class="bg-slate-100 p-4 flex justify-between items-center border-b border-slate-200">
+                        <span class="text-slate-400 text-xs font-bold tracking-widest uppercase">Definition</span>
+                        <a id="link-cambridge" href="#" target="_blank" class="text-blue-600 text-xs hover:underline flex items-center gap-1 font-bold" onclick="event.stopPropagation();">
+                            劍橋字典例句 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                        </a>
+                    </div>
+
+                    <div class="p-8 flex-1 overflow-y-auto no-scrollbar flex flex-col justify-center items-center text-center">
+                        <p id="card-def" class="text-3xl font-bold text-slate-800 leading-relaxed mb-2">
+                            ...
+                        </p>
+                        <p id="card-note" class="text-slate-500 text-sm mt-4 hidden">
+                            (使用者自訂筆記)
+                        </p>
+                    </div>
+
+                    <div class="bg-slate-50 p-4 flex justify-center border-t border-slate-100">
+                         <button id="btn-speak-back" class="text-slate-600 hover:text-blue-600 flex items-center gap-2 text-sm font-bold transition-colors">
+                            <span class="bg-slate-200 p-1 rounded-full">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                            </span>
+                            聆聽發音
+                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4">
+            <button id="btn-prev" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-4 rounded-xl shadow-lg border-b-4 border-slate-900 active:border-b-0 active:translate-y-1 transition-all">
+                上一個
+            </button>
+            
+            <button id="btn-shuffle" class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white font-bold py-4 rounded-xl shadow-lg border-b-4 border-slate-900 active:border-b-0 active:translate-y-1 transition-all flex justify-center items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                洗牌
+            </button>
+
+            <button id="btn-next" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-4 rounded-xl shadow-lg border-b-4 border-slate-900 active:border-b-0 active:translate-y-1 transition-all">
+                下一個
+            </button>
+        </div>
+
+    </main>
+
+    <div id="upload-modal" class="hidden fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-xl rounded-2xl p-8 shadow-2xl relative">
+            <button onclick="document.getElementById('upload-modal').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+
+            <h3 class="text-2xl font-bold text-slate-800 mb-2">匯入自訂單字庫</h3>
+            <p class="text-sm text-slate-500 mb-6">
+                支援 JSON 或 純文字檔。
+                <br>文字檔範例：<code>apple,蘋果</code> 或 <code>banana=香蕉</code> (一行一個)。
+            </p>
+
+            <div id="drop-zone" class="w-full border-2 border-dashed border-slate-300 rounded-xl p-8 text-center transition-all cursor-pointer hover:border-blue-500 hover:bg-blue-50 group mb-6">
+                <input type="file" id="file-input" class="hidden" accept=".json,.txt,.csv">
+                <div class="pointer-events-none">
+                    <svg class="w-12 h-12 mx-auto text-slate-300 group-hover:text-blue-500 mb-3 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <p class="text-slate-600 font-bold group-hover:text-blue-600">點擊上傳 或 拖曳檔案至此</p>
+                </div>
+            </div>
+
+            <div class="flex gap-4">
+                <button id="btn-replace" class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-lg border border-red-200 transition-colors">
+                    覆蓋原詞庫
+                </button>
+                <button id="btn-merge" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md transition-colors">
+                    加入原詞庫 (混合)
+                </button>
+            </div>
+            
+            <p id="upload-status" class="text-center text-sm mt-4 text-slate-500 min-h-[20px]"></p>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. 內建海量單字庫 (壓縮字串 - 約2200字)
+        // ==========================================
+        const packedData = "abandon=放棄;遺棄|ability=能力|able=能夠的|abnormal=不正常的|aboard=在船(飛機、車)上|abolish=廢除|abortion=墮胎|about=關於;大約|above=在...之上|abroad=在國外|absence=缺席|absent=缺席的|absolute=絕對的|absorb=吸收|abstract=抽象的|abstraction=抽象概念|absurd=荒謬的|abundance=豐富|abundant=豐富的|abuse=濫用;虐待|academic=學術的|academy=學院|accelerate=加速|acceleration=加速|accent=口音|accept=接受|acceptable=可接受的|acceptance=接受|access=通道;存取|accessible=可接近的|accessory=配件|accident=意外|accidental=意外的|acclaim=喝彩|accommodate=容納;適應|accommodation=住宿|accompany=陪伴|accomplish=完成|accord=符合;協議|accordance=一致|according=根據|account=帳戶;解釋|accountable=應負責任的|accountant=會計師|accumulate=累積|accumulation=累積|accuracy=準確性|accurate=準確的|accusation=指控|accuse=指控|accustom=使習慣|ache=疼痛|achieve=達成|achievement=成就|acid=酸|acknowledge=承認|acne=粉刺|acquaint=使熟悉|acquaintance=熟人|acquire=獲得|acquisition=獲得|acre=英畝|across=穿過|act=行動;表演|action=行動|active=活躍的|activist=激進主義分子|activity=活動|actor=男演員|actress=女演員|actual=實際的|acute=敏銳的;急性的|adapt=適應|adaptation=適應;改編|add=增加|addict=上癮者|addiction=成癮|addition=增加|additional=額外的|address=地址;演講|adequate=足夠的|adjust=調整|adjustment=調整|administration=行政|administrative=行政的|administrator=行政人員|admire=欽佩|admission=准許進入|admit=承認|adolescent=青少年|adopt=採用;收養|adoption=採用;收養|adult=成人|advance=前進;進步|advanced=先進的|advantage=優勢|adventure=冒險|adverse=不利的|advertise=廣告|advertisement=廣告|advice=建議|advise=建議|adviser=顧問|advocate=提倡者|aesthetic=美學的|affair=事務;緋聞|affect=影響|affection=喜愛|affiliate=附屬機構|afford=負擔得起|afraid=害怕的|after=在...之後|afternoon=下午|afterward=之後|again=再一次|against=反對|age=年齡|agency=代理機構|agenda=議程|agent=代理人|aggression=侵略|aggressive=侵略性的|agony=極大的痛苦|agree=同意|agreement=協議|agricultural=農業的|agriculture=農業|ahead=在...之前|aid=援助|aim=目標|air=空氣|aircraft=飛行器|airline=航空公司|airplane=飛機|airport=機場|aisle=走道|alarm=警報|album=專輯|alcohol=酒精|alert=警覺的|alien=外星人;外國的|alike=相似的|alive=活著的|all=全部|allegation=指控|allege=宣稱|allergy=過敏|alliance=聯盟|allow=允許|allowance=津貼|ally=盟友|almost=幾乎|alone=單獨的|along=沿著|alongside=在旁邊|aloud=大聲地|alphabet=字母|already=已經|also=也|alter=改變|alternative=替代的|although=雖然|altitude=高度|altogether=總共|aluminum=鋁|always=總是|amateur=業餘的|amaze=使驚訝|ambassador=大使|ambiguity=模稜兩可|ambiguous=模稜兩可的|ambition=野心|ambitious=有野心的|ambulance=救護車|amend=修正|amendment=修正案|amid=在...之中|ammunition=彈藥|among=在...之中|amount=數量|ample=充足的|amuse=使娛樂|amusement=娛樂|analogy=類比|analysis=分析|analyst=分析師|analyze=分析|ancestor=祖先|anchor=錨;主播|ancient=古代的|and=和|angel=天使|anger=憤怒|angle=角度|angry=生氣的|animal=動物|ankle=腳踝|anniversary=週年紀念|announce=宣佈|announcement=宣佈|annoy=使煩惱|annual=每年的|anonymous=匿名的|another=另一個|answer=回答|ant=螞蟻|antagonism=敵意|antarctic=南極的|antibiotic=抗生素|anticipate=預期|anticipation=預期|antique=古董|anxiety=焦慮|anxious=焦慮的|any=任何|anybody=任何人|anymore=再也(不)|anyone=任何人|anything=任何事|anyway=無論如何|anywhere=任何地方|apart=分開|apartment=公寓|ape=猿|apologize=道歉|apology=道歉|appal=使驚駭|apparatus=儀器|apparel=服裝|apparent=明顯的|appeal=吸引;上訴|appear=出現|appearance=外表|appendix=附錄;闌尾|appetite=食慾|applaud=鼓掌|applause=掌聲|apple=蘋果|appliance=器具|applicable=適用的|applicant=申請人|application=申請|apply=申請;應用|appoint=任命|appointment=任命;約會|appraisal=評估|appreciate=欣賞;感激|appreciation=欣賞;感激|apprehend=逮捕;理解|approach=接近;方法|appropriate=適當的|approval=批准|approve=批准|approximate=大約的|april=四月|arbitrary=任意的|architect=建築師|architecture=建築|archive=檔案|area=區域|arena=競技場|argue=爭論|argument=爭論|arise=發生|arithmetic=算術|arm=手臂|army=軍隊|around=周圍|arouse=喚起|arrange=安排|arrangement=安排|array=陣列;一系列|arrest=逮捕|arrival=到達|arrive=到達|arrogant=傲慢的|arrow=箭|art=藝術|artery=動脈|article=文章;物品|articulate=清晰地表達|artifact=手工藝品|artificial=人工的|artist=藝術家|artistic=藝術的|as=作為|ascend=上升|ash=灰燼|ashamed=羞愧的|aside=在旁邊|ask=問|asleep=睡著的|aspect=方面|aspire=渴望|ass=驢;傻瓜|assassinate=暗殺|assault=攻擊|assemble=集合;組裝|assembly=集會|assert=斷言|assertion=斷言|assess=評估|assessment=評估|asset=資產|assign=分配|assignment=作業|assist=協助|assistance=協助|assistant=助理|associate=聯想;交往|association=協會|assume=假設;承擔|assumption=假設|assurance=保證|assure=保證|asthma=氣喘|astonish=使驚訝|astronaut=太空人|astronomy=天文學|asylum=庇護所|athlete=運動員|athletic=運動的|atmosphere=氣氛;大氣|atom=原子|attach=貼上|attachment=附件|attack=攻擊|attain=達到|attempt=嘗試|attend=參加|attendance=出席|attendant=服務員|attention=注意|attic=閣樓|attitude=態度|attorney=律師|attract=吸引|attraction=吸引力|attractive=有吸引力的|attribute=歸因於|auction=拍賣|audience=觀眾|audio=聲音的|audit=審計|auditorium=禮堂|august=八月|aunt=阿姨|authentic=真實的|author=作者|authority=權威|authorize=授權|auto=汽車|autobiography=自傳|autograph=親筆簽名|automatic=自動的|automobile=汽車|autonomy=自治|autumn=秋天|availability=可用性|available=可用的|avenge=報仇|avenue=大道|average=平均的|aviation=航空|avoid=避免|await=等待|awake=醒著的|award=獎項|aware=意識到的|awareness=意識|away=離開|awful=糟糕的|awkward=尷尬的|baby=嬰兒|back=背面|background=背景|backyard=後院|bacteria=細菌|bad=壞的|badge=徽章|badly=壞地;非常|badminton=羽毛球|bag=袋子|baggage=行李|bail=保釋|bait=餌|bake=烘烤|bakery=麵包店|balance=平衡|balcony=陽台|bald=禿頭的|ball=球|ballad=民謠|ballet=芭蕾舞|balloon=氣球|ballot=選票|ban=禁止|banana=香蕉|band=樂團;帶子|bandage=繃帶|bang=重擊|bank=銀行;堤岸|bankrupt=破產的|bankruptcy=破產|banner=旗幟|banquet=宴會|bar=酒吧;條|barbecue=烤肉|barber=理髮師|bare=裸露的|barely=幾乎不|bargain=討價還價|bark=吠叫;樹皮|barn=穀倉|barometer=氣壓計|barracks=兵營|barrel=桶|barrier=障礙|base=基礎|baseball=棒球|basement=地下室|basic=基本的|basin=盆地;洗手台|basis=基礎|basket=籃子|basketball=籃球|bass=低音;鱸魚|bat=蝙蝠;球棒|batch=一批|bath=洗澡|bathroom=浴室|battery=電池|battle=戰鬥|bay=海灣|be=是|beach=海灘|beam=光束|bean=豆子|bear=忍受;熊|beard=鬍鬚|beast=野獸|beat=擊敗;敲打|beautiful=美麗的|beauty=美麗|because=因為|beckon=招手|become=變成|bed=床|bedroom=臥室|bee=蜜蜂|beef=牛肉|beer=啤酒|before=在...之前|beg=乞求|beggar=乞丐|begin=開始|beginner=初學者|behalf=代表|behave=表現|behavior=行為|behind=在...後面|being=存在|belief=信念|believe=相信|bell=鈴|belly=肚子|belong=屬於|belongings=所有物|beloved=摯愛的|below=在...之下|belt=皮帶|bench=長凳|bend=彎曲|beneath=在...之下|beneficial=有益的|benefit=利益|benevolence=仁慈|berry=莓果|beside=在旁邊|besides=此外|siege=圍攻|best=最好的|bet=打賭|betray=背叛|better=更好的|between=在...之間|beverage=飲料|beware=當心|bewilder=使困惑|beyond=超越|bias=偏見|bible=聖經|bicycle=腳踏車|bid=出價|big=大的|bike=腳踏車|bill=帳單|billion=十億|bin=箱子|bind=綁|bingo=賓果|biography=傳記|biological=生物的|biology=生物學|bird=鳥|birth=出生|birthday=生日|biscuit=餅乾|bishop=主教|bit=一點點|bite=咬|bitter=苦的|bizarre=古怪的|black=黑色|blackboard=黑板|blacksmith=鐵匠|blade=刀片|blame=責怪|blank=空白的|blanket=毯子|blast=爆炸|blaze=火焰|bleach=漂白|bleed=流血|blend=混合|bless=祝福|blessing=祝福|blind=瞎的|blink=眨眼|block=街區;阻擋|blond=金髮的|blood=血|bloody=血腥的|bloom=開花|blossom=花;開花|blouse=女襯衫|blow=吹|blue=藍色|blueprint=藍圖|bluff=虛張聲勢|blunder=大錯|blur=模糊|blush=臉紅|board=板子;登機|boast=吹噓|boat=船|body=身體|bodyguard=保鑣|bog=沼澤|boil=沸騰|bold=大膽的|bolt=門閂;螺栓|bomb=炸彈|bond=債券;連結|bondage=束縛|bone=骨頭|bonus=獎金|book=書;預訂|bookcase=書櫃|boom=繁榮|boost=促進|boot=靴子|booth=攤位|border=邊界|bore=使厭煩|bored=感到厭煩的|boring=無聊的|born=出生的|borrow=借入|bosom=胸懷|boss=老闆|botany=植物學|both=兩者|bother=打擾|bottle=瓶子|bottom=底部|bounce=彈跳|bound=被束縛的;前往|boundary=邊界|bouquet=花束|bout=一回合|bow=鞠躬;弓|bowel=腸|bowl=碗|bowling=保齡球|box=箱子|boxing=拳擊|boy=男孩|boycott=杯葛|brace=支撐|bracelet=手鐲|bracket=括號|brain=大腦|brake=煞車|branch=樹枝;分店|brand=品牌|brandy=白蘭地|brass=黃銅|brave=勇敢的|bravery=勇敢|breach=違法;缺口|bread=麵包|breadth=寬度|break=打破;休息|breakdown=崩潰;故障|breakfast=早餐|breakthrough=突破|breast=胸部|breath=呼吸|breathe=呼吸|breed=繁殖;品種|breeze=微風|brew=釀造|bribe=賄賂|brick=磚塊|bride=新娘|bridegroom=新郎|bridge=橋|brief=簡短的|briefcase=公事包|bright=明亮的|brilliant=傑出的|bring=帶來|brisk=輕快的|bristle=剛毛|broad=寬廣的|broadcast=廣播|brochure=小冊子|broil=烤|broken=破碎的|bronze=青銅|brook=小溪|broom=掃帚|brother=兄弟|brow=額頭|brown=棕色|browse=瀏覽|bruise=瘀青|brush=刷子|brutal=殘忍的|bubble=氣泡|buck=雄鹿;美元|bucket=水桶|buckle=扣環|bud=芽|budget=預算|buffalo=水牛|buffer=緩衝|buffet=自助餐|bug=蟲;故障|build=建造|building=建築物|bulb=燈泡|bulge=凸起|bulk=大量|bull=公牛|bullet=子彈|bulletin=公告|bully=霸凌|bump=碰撞|bunch=一束|bundle=捆|burden=負擔|bureau=局|bureaucracy=官僚|burglar=竊賊|burial=埋葬|burn=燃燒|burst=爆發|bury=埋葬|bus=公車|bush=灌木|business=商業|businessman=商人|bust=胸像;破產|busy=忙碌的|but=但是|butcher=屠夫|butter=奶油|butterfly=蝴蝶|button=按鈕;扣子|buy=買|buzz=嗡嗡聲|by=藉由|bypass=繞過|cab=計程車|cabbage=高麗菜|cabin=小屋|cabinet=櫥櫃;內閣|cable=電纜|cafe=咖啡廳|cafeteria=自助餐廳|cage=籠子|cake=蛋糕|calamity=災難|calculate=計算|calculation=計算|calculator=計算機|calendar=日曆|calf=小牛;小腿|call=打電話;稱呼|calm=冷靜的|calorie=卡路里|camel=駱駝|camera=相機|camp=營地|campaign=活動|campus=校園|can=能夠;罐頭|canal=運河|cancel=取消|cancer=癌症|candidate=候選人|candle=蠟燭|candy=糖果|cane=手杖|cannon=大砲|canoe=獨木舟|canvas=帆布|canyon=峽谷|cap=帽子;蓋子|capability=能力|capable=有能力的|capacity=容量;能力|cape=披肩;海角|capital=首都;資本|capitalism=資本主義|capitalist=資本家|capsule=膠囊|captain=隊長;船長|caption=標題;字幕|captive=俘虜|capture=捕捉|car=汽車|carbon=碳|card=卡片|cardboard=紙板|care=關心|career=職業|carefree=無憂無慮的|careful=小心的|careless=粗心的|caress=愛撫|cargo=貨物|carpenter=木匠|carpet=地毯|carriage=馬車|carrier=搬運者;載體|carrot=紅蘿蔔|carry=攜帶|cart=手推車|cartoon=卡通|carve=雕刻|case=案例;箱子|cash=現金|cashier=收銀員|casino=賭場|cast=投擲;演員陣容|castle=城堡|casual=隨便的|casualty=傷亡者|cat=貓|catalog=目錄|catastrophe=大災難|catch=抓住|category=種類|cater=迎合|cathedral=大教堂|cattle=牛|cause=原因|caution=謹慎|cautious=謹慎的|cavalry=騎兵|cave=洞穴|cavity=洞;蛀牙|cease=停止|ceiling=天花板|celebrate=慶祝|celebration=慶祝|celebrity=名人|cell=細胞|cellar=地窖|cement=水泥|cemetery=墓地|censor=審查|censorship=審查制度|census=人口普查|cent=分|center=中心|central=中央的|century=世紀|cereal=麥片|ceremony=儀式|certain=確定的|certainly=當然|certainty=確定性|certificate=證書|certification=證明|chain=鏈子|chair=椅子|chairman=主席|chalk=粉筆|challenge=挑戰|chamber=房間|champagne=香檳|champion=冠軍|championship=冠軍賽|chance=機會|chancellor=總理|change=改變|channel=頻道|chaos=混亂|chap=傢伙|chapel=小教堂|chapter=章節|character=性格;角色|characteristic=特徵|characterize=描繪...的特性|charge=收費;控告|charity=慈善|charm=魅力|charming=迷人的|chart=圖表|charter=憲章;包租|chase=追逐|chat=聊天|cheap=便宜的|cheat=作弊|check=檢查;支票|checkbook=支票簿|checkup=健康檢查|cheek=臉頰|cheer=歡呼|cheerful=快樂的|cheese=起司|chef=主廚|chemical=化學的|chemist=化學家|chemistry=化學|cherish=珍惜|cherry=櫻桃|chess=西洋棋|chest=胸部;箱子|chew=咀嚼|chicken=雞|chief=主要的;首領|child=小孩|childhood=童年|childish=幼稚的|childlike=天真爛漫的|chill=寒冷|chilly=寒冷的|chimney=煙囪|chin=下巴|china=瓷器|chip=晶片;洋芋片|chirp=鳥叫聲|chocolate=巧克力|choice=選擇|choir=唱詩班|choke=噎住|cholesterol=膽固醇|choose=選擇|chop=砍|chopstick=筷子|chord=和弦|chore=雜務|chorus=合唱|christian=基督徒|christmas=聖誕節|chronic=慢性的|chunk=大塊|church=教堂|cigar=雪茄|cigarette=香菸|cinema=電影院|circle=圓圈|circuit=電路|circular=圓形的|circulate=循環|circulation=循環|circumstance=情況|circus=馬戲團|cite=引用|citizen=公民|city=城市|civic=公民的;國內的|civilian=平民|civilization=文明|civilize=教化|claim=聲稱|clamp=夾緊|clap=拍手|clarify=澄清|clarity=清晰|clash=衝突|clasp=扣住|class=班級;階級|classic=經典的|classical=古典的|classification=分類|classify=分類|classmate=同學|classroom=教室|clause=條款|claw=爪子|clay=黏土|clean=乾淨的|cleaner=清潔工|clear=清楚的|clearance=清除|clerk=店員|clever=聰明的|click=點擊|client=客戶|cliff=懸崖|climate=氣候|climax=高潮|climb=攀爬|cling=堅持;黏著|clinic=診所|clip=修剪;迴紋針|cloak=斗篷|clock=時鐘|clockwise=順時針的|clone=複製|close=關閉;親近的|closet=衣櫥|cloth=布|clothe=給...穿衣|clothes=衣服|clothing=衣物|cloud=雲|cloudy=多雲的|clown=小丑|club=俱樂部|clue=線索|clumsy=笨拙的|cluster=簇|clutch=抓緊|coach=教練|coal=煤炭|coalition=聯盟|coarse=粗糙的|coast=海岸|coastal=海岸的|coat=外套|cock=公雞|cocktail=雞尾酒|cocoa=可可|coconut=椰子|code=代碼|coeducation=男女合校|coexist=共存|coffee=咖啡|coffin=棺材|coherent=連貫的|coil=線圈|coin=硬幣|coincide=巧合|coincidence=巧合|coke=可樂|cold=冷的|collaborate=合作|collapse=倒塌|collar=衣領|colleague=同事|collect=收集|collection=收集|collective=集體的|collector=收藏家|college=大學|collide=碰撞|collision=碰撞|colonel=上校|colonial=殖民的|colony=殖民地|color=顏色|colorful=多彩的|column=專欄;圓柱|columnist=專欄作家|comb=梳子|combat=戰鬥|combination=結合|combine=結合|come=來|comedian=喜劇演員|comedy=喜劇|comet=彗星|comfort=舒適|comfortable=舒適的|comic=滑稽的;漫畫|comma=逗號|command=命令|commander=指揮官|commemorate=紀念|commence=開始|comment=評論|commentary=評論|commentator=評論員|commerce=商業|commercial=商業的|commission=佣金;委員會|commit=承諾;犯罪|commitment=承諾|committee=委員會|commodity=商品|common=常見的|commonplace=平凡的|commonwealth=聯邦|communicate=溝通|communication=溝通|communism=共產主義|communist=共產主義者|community=社區|commute=通勤|compact=緊湊的|companion=同伴|company=公司;陪伴|comparable=可比較的|compare=比較|comparison=比較|compartment=隔間|compass=指南針|compassion=同情|compatible=相容的|compel=強迫|compensate=補償|compensation=補償|compete=競爭|competence=能力|competent=有能力的|competition=競爭|competitive=競爭的|competitor=競爭者|compile=編纂|complain=抱怨|complaint=抱怨|complement=補充|complete=完成|complex=複雜的|complexion=氣色|complexity=複雜性|compliance=順從|complicate=使複雜|complicated=複雜的|compliment=讚美|ply=遵守|component=成分|compose=組成;作曲|composer=作曲家|composition=作文;組成|compound=混合物|comprehend=理解|comprehension=理解力|comprehensive=全面的|press=壓縮|comprise=包含|compromise=妥協|compulsory=強制的|compute=計算|computer=電腦|comrade=同志|conceal=隱藏|concede=承認;讓步|conceit=自負|ceive=構想|concentrate=專心|concentration=專心|concept=概念|conception=概念|concern=關心;涉及|concerning=關於|concert=音樂會|concession=讓步|concise=簡潔的|conclude=下結論|conclusion=結論|concrete=具體的;混凝土|condemn=譴責|condense=凝結;濃縮|condition=條件;狀況|conducive=有助的|conduct=行為;傳導|conductor=指揮;導體|cone=圓錐體|confer=協商|conference=會議|confess=承認|confession=承認|confide=吐露|confidence=信心|confident=有信心的|confidential=機密的|confine=限制|confirm=確認|confirmation=確認|conflict=衝突|conform=符合|confront=面對|confrontation=對抗|confuse=使困惑|confusion=困惑|congratulate=恭喜|congratulation=恭喜|congress=國會|congressman=國會議員|conjunction=連接詞|connect=連接|connection=連接|conquer=征服|conquest=征服|conscience=良心|conscientious=盡責的|conscious=有意識的|consciousness=意識|consecutive=連續的|consensus=共識|consent=同意|consequence=後果|consequent=隨之發生的|conservation=保育|conservative=保守的|conserve=保存|consider=考慮|considerable=相當大的|considerate=體貼的|consideration=考慮|consist=組成|consistency=一致性|consistent=一致的|console=安慰|consolidate=鞏固|consonant=子音|conspicuous=顯眼的|conspiracy=陰謀|constable=警官|constant=持續的|constituency=選區|constitute=構成|constitution=憲法|constitutional=憲法的|constraint=限制|construct=建造|construction=建造|constructive=建設性的|consult=諮詢|consultant=顧問|consultation=諮詢|consume=消耗|consumer=消費者|consumption=消耗|contact=接觸;聯絡|contagious=傳染性的|contain=包含|container=容器|contaminate=污染|contemplate=沈思|contemporary=當代的|contempt=輕視|contend=競爭;主張|content=內容;滿意的|contest=比賽|context=上下文|continent=大陸|continual=頻繁的|continue=繼續|continuity=連續性|continuous=連續的|contract=合約;收縮|contractor=承包商|contradict=反駁|contradiction=矛盾|contrary=相反的|contrast=對比|contribute=貢獻|contribution=貢獻|control=控制|controller=控制器|controversial=有爭議的|controversy=爭議|convenience=方便|convenient=方便的|convention=大會;慣例|conventional=傳統的|conversation=對話|verse=交談;相反的|conversion=轉換|convert=轉換|convey=傳達|convict=定罪|conviction=定罪;信念|convince=說服|convincing=令人信服的|cook=廚師;煮|cookie=餅乾|cooking=烹飪|cool=涼爽的|cooperate=合作|cooperation=合作|cooperative=合作的|coordinate=協調|cope=應付|copper=銅|copy=複製|copyright=版權|coral=珊瑚|cord=繩索|cordial=熱誠的|core=核心|cork=軟木塞|corn=玉米|corner=角落|corporation=公司|corps=軍團|corpse=屍體|correct=正確的|correction=訂正|correspond=符合;通信|correspondence=通信|correspondent=特派員|corridor=走廊|corrupt=腐敗的|corruption=貪污|cosmetic=化妝品|cosmic=宇宙的|cosmopolitan=國際性的|cost=成本|costly=昂貴的|costume=服裝|cottage=小屋|cotton=棉花|couch=沙發|cough=咳嗽|council=理事會|counsel=建議|counselor=顧問|count=計算;重要|counter=櫃檯;反擊|counterpart=對應的人或物|countless=無數的|country=國家|countryside=鄉村|county=縣|coup=政變|couple=一對|coupon=折價券|courage=勇氣|courageous=勇敢的|course=課程;路線|court=法院;球場|courteous=有禮貌的|courtesy=禮貌|courtyard=庭院|cousin=表(堂)兄弟姊妹|cover=覆蓋;報導|coverage=報導;保險範圍|covet=覬覦|cow=母牛|coward=懦夫|cowboy=牛仔|crab=螃蟹|crack=裂縫;破解|cradle=搖籃|craft=工藝|cram=塞滿;死記硬背|cramp=抽筋|crane=起重機;鶴|crash=碰撞;墜毀|crater=火山口|crawl=爬行|crazy=瘋狂的|creak=嘎吱聲|cream=奶油|creature=生物|credit=信用;讚揚|creek=小溪|creep=爬行|crew=全體船員|cricket=蟋蟀;板球|crime=犯罪|criminal=罪犯|cripple=使殘廢|crisis=危機|crisp=酥脆的|criterion=標準|critic=評論家|critical=批評的;關鍵的|criticism=批評|criticize=批評|crocodile=鱷魚|crook=騙子;彎曲|crop=農作物|cross=越過;十字架|crossing=交叉路口|crossroad=十字路口|crouch=蹲伏|crow=烏鴉|crowd=人群|crown=皇冠|crucial=關鍵的|crude=粗糙的;原生的|cruel=殘忍的|cruelty=殘忍|cruise=巡航|crumb=麵包屑|crumble=粉碎|crunch=嘎吱作響|crush=壓碎|crust=地殼;麵包皮|crutch=拐杖|cry=哭|crystal=水晶|cub=幼獸|cube=立方體|cucumber=小黃瓜|cue=暗示|cuisine=烹飪|culminate=達到頂點|cultivate=耕作;培養|cultural=文化的|culture=文化|cunning=狡猾的|cup=杯子|cupboard=碗櫥|curb=抑制;路緣|cure=治癒|curiosity=好奇心|curious=好奇的|curl=捲曲|currency=貨幣|current=目前的;水流|curriculum=課程|curry=咖哩|curse=詛咒|curtail=縮減|curtain=窗簾|curve=曲線|cushion=墊子|custody=監護;拘留|custom=習俗|customary=習慣的|customer=顧客|customs=海關|cut=切|cute=可愛的|cycle=循環|cyclist=自行車騎士|cylinder=圓柱體|cynical=憤世嫉俗的|dad=爸爸|daddy=爸爸|daily=每日的|dairy=乳製品|dam=水壩|damage=損害|damn=該死|damp=潮濕的|dance=跳舞|dancer=舞者|danger=危險|dangerous=危險的|dare=敢|dark=黑暗的|darken=變黑|darkness=黑暗|darling=親愛的|dart=飛鏢|dash=衝;破折號|data=數據|database=資料庫|date=日期;約會|daughter=女兒|dawn=黎明|day=天|daybreak=破曉|daylight=日光|dazzle=使目眩|dead=死的|deadline=截止日期|deadly=致命的|deaf=聾的|deal=交易;處理|dealer=商人|dean=系主任|dear=親愛的|death=死亡|debate=辯論|debris=殘骸|debt=債務|debut=首次亮相|decade=十年|decay=腐爛|deceased=已故的|deceit=欺騙|deceive=欺騙|december=十二月|decency=體面|decent=體面的|deception=欺騙|decide=決定|decision=決定|decisive=決定性的|deck=甲板|declaration=宣佈|declare=宣佈|decline=下降;婉拒|decorate=裝飾|decoration=裝飾|decorative=裝飾的|decrease=減少|decree=法令|dedicate=奉獻|dedication=奉獻|deduct=扣除|deed=行為|deem=認為|deep=深的|deepen=加深|deer=鹿|defeat=擊敗|defect=缺陷|defence=防禦|defend=防衛|defendant=被告|defender=防衛者|defense=防禦|defensive=防禦的|deficiency=缺乏|deficit=赤字|define=定義|definite=明確的|definition=定義|defy=違抗|degenerate=退化|degree=度數;學位|delay=延遲|delegate=代表|delegation=代表團|delete=刪除|deliberate=故意的;深思熟慮的|delicacy=佳餚|delicate=脆弱的;精緻的|delicious=美味的|delight=愉快|delightful=令人愉快的|delinquent=有過失的|deliver=遞送|delivery=遞送|demand=要求|demanding=要求高的|democracy=民主|democrat=民主主義者|democratic=民主的|demolish=拆除|demonstrate=示範;示威|demonstration=示範;示威|denial=否認|denounce=譴責|dense=密集的|density=密度|dental=牙齒的|dentist=牙醫|deny=否認|depart=出發|department=部門|departure=出發|depend=依賴|dependent=依賴的|depict=描繪|deplete=耗盡|deplore=哀嘆|deploy=部署|deposit=存款;沉積|depot=倉庫;車站|depreciate=貶值|depress=使沮喪|depression=憂鬱症;蕭條|deprive=剝奪|depth=深度|deputy=副手|derive=源自|descend=下降|descendant=後代|descent=下降;血統|describe=描述|description=描述|desert=沙漠;遺棄|deserve=應得|design=設計|designate=指定|designer=設計師|desirable=值得嚮往的|desire=渴望|desk=書桌|desolate=荒涼的|despair=絕望|desperate=絕望的;不顧一切的|despise=鄙視|despite=儘管|dessert=甜點|destination=目的地|destined=註定的|destiny=命運|destroy=破壞|destruction=破壞|destructive=破壞性的|detach=分開|detail=細節|detain=拘留|detect=偵測|detective=偵探|detector=偵測器|deter=阻止|deteriorate=惡化|determination=決心|determine=決定|determined=下定決心的|tour=繞道|devastate=摧毀|develop=發展|developer=開發者|development=發展|device=裝置|devil=魔鬼|devise=設計;發明|devote=奉獻|devotion=奉獻|devour=狼吞虎嚥|dew=露水|diagnose=診斷|diagnosis=診斷|diagram=圖表|dial=撥號|dialect=方言|dialogue=對話|diameter=直徑|diamond=鑽石|diary=日記|dictate=口述;命令|dictation=聽寫|dictator=獨裁者|dictionary=字典|die=死|diet=飲食|differ=不同|difference=差異|different=不同的|differentiate=區分|difficult=困難的|difficulty=困難|dig=挖|digest=消化;摘要|digestion=消化|digital=數位的|dignity=尊嚴|dilemma=困境|diligence=勤勉|diligent=勤勉的|dilute=稀釋|dim=昏暗的|dime=一角硬幣|dimension=尺寸;維度|diminish=減少|dine=用餐|dinner=晚餐|dinosaur=恐龍|dip=浸;沾|diploma=文憑|diplomacy=外交|diplomat=外交官|diplomatic=外交的|direct=直接的;指揮|direction=方向|directive=指令|director=導演;主管|directory=目錄|dirt=泥土|dirty=髒的|disability=殘疾|disabled=殘疾的|disadvantage=缺點|disagree=不同意|disagreement=意見不合|disappear=消失|disappoint=使失望|disappointed=失望的|disappointing=令人失望的|disappointment=失望|disapprove=不贊成|disaster=災難|disastrous=災難性的|disc=圓盤;唱片|discard=丟棄|discharge=排放;釋放|disciple=信徒|discipline=紀律;學科|disclose=揭露|disco=迪斯可|discomfort=不適|discount=折扣|discourage=使氣餒|discourse=演講;論述|discover=發現|discovery=發現|discreet=謹慎的|discrepancy=差異|discretion=謹慎;裁量權|discriminate=歧視|discrimination=歧視|discuss=討論|discussion=討論|disease=疾病|disgrace=恥辱|disguise=偽裝|disgust=厭惡|dish=盤子;菜餚|disk=磁碟|dislike=不喜歡|dismal=憂鬱的|dismantle=拆除|dismay=沮喪|dismiss=解散;解僱|disorder=混亂;失調|dispatch=派遣|dispel=驅散|dispense=分配;免除|disperse=驅散|place=取代|placement=取代|display=展示|displease=使不悅|disposable=用完即丟的|disposal=處理|dispose=處置|disposition=性情|dispute=爭端|disregard=忽視|disrupt=中斷|dissatisfaction=不滿|dissatisfy=使不滿|dissent=異議|dissertation=論文|dissident=異議份子|dissolve=溶解;解散|distance=距離|distant=遙遠的|distinct=獨特的;明顯的|distinction=區別|distinctive=獨特的|distinguish=區分|distinguished=傑出的|distort=扭曲|distract=分心|distraction=分心|distress=痛苦|distribute=分發|distribution=分發|district=區域|distrust=不信任|disturb=打擾|disturbance=騷動|ditch=溝渠|dive=潛水|diver=潛水員|diverse=多樣的|diversify=多樣化|diversion=轉移注意|diversity=多樣性|divert=轉移|divide=分開|dividend=股息|divine=神聖的|division=部門;除法|divorce=離婚|dizzy=暈眩的|do=做|dock=碼頭|doctor=醫生|doctrine=教條|document=文件|documentary=紀錄片|dodge=閃避|dog=狗|doll=洋娃娃|dollar=元|dolphin=海豚|domain=領域|dome=圓頂|domestic=國內的;家庭的|dominant=佔優勢的|dominate=支配|donate=捐贈|donation=捐贈|donkey=驢子|donor=捐贈者|doom=厄運|door=門|doorstep=門階|doorway=門口|dormitory=宿舍|dose=劑量|dot=點|double=雙倍的|doubt=懷疑|doubtful=懷疑的|dough=麵團|dove=鴿子|down=向下|download=下載|downstairs=樓下|downtown=市中心|downward=向下的|doze=打瞌睡|dozen=一打|draft=草稿;徵兵|drag=拖|dragon=龍|drain=排出;消耗|drainage=排水|drama=戲劇|dramatic=戲劇性的|dramatize=戲劇化|drape=懸掛|drastic=激烈的|draw=畫;拉|drawback=缺點|drawer=抽屜|drawing=繪畫|dread=恐懼|dreadful=可怕的|dream=夢|dress=洋裝;穿衣|dressing=調味醬|drift=漂流|drill=鑽孔;演習|drink=喝|drip=滴下|drive=駕駛;驅動力|driver=司機|driveway=車道|drop=掉落|drought=乾旱|drown=淹死|drowsy=昏昏欲睡的|drug=藥物;毒品|drum=鼓|drunk=喝醉的|dry=乾的|dual=雙重的|dubious=可疑的|duck=鴨子|due=到期的;由於|duke=公爵|dull=遲鈍的;無聊的|dumb=啞的;笨的|dump=傾倒|duplicate=複製|durable=耐用的|duration=期間|during=在...期間|dusk=黃昏|dust=灰塵|dusty=佈滿灰塵的|duty=義務;稅|dwarf=侏儒|dwell=居住|dwelling=住處|dye=染色|dynamic=動態的|dynamite=炸藥|dynasty=朝代|eager=渴望的|eagle=老鷹|ear=耳朵|early=早的|earn=賺取|earnest=認真的|earnings=收入|earth=地球|earthquake=地震|ease=容易;減輕|east=東方|eastern=東方的|easy=容易的|eat=吃|eccentric=古怪的|echo=回音|eclipse=日蝕;月蝕|ecological=生態的|ecology=生態學|economic=經濟的|economical=節儉的|economics=經濟學|economist=經濟學家|economy=經濟|edge=邊緣|edible=可食用的|edit=編輯|edition=版本|editor=編輯|editorial=社論|educate=教育|education=教育|educational=教育的|eel=鰻魚|effect=效果|effective=有效的|efficiency=效率|efficient=有效率的|effort=努力|egg=蛋|ego=自我|eight=八|eighteen=十八|eighty=八十|either=兩者之一|elaborate=詳盡的;精心製作的|elastic=有彈性的|elbow=手肘|elder=年長的|elderly=年長的|elect=選舉|election=選舉|electric=電的|electrical=電的|electrician=電工|electricity=電力|electronic=電子的|electronics=電子學|elegant=優雅的|element=要素|elementary=基本的|elephant=大象|elevate=提升|elevation=高度|elevator=電梯|eleven=十一|elicit=引出|eligible=有資格的|eliminate=消除|elimination=消除|elite=菁英|eloquent=雄辯的|else=其他|elsewhere=在別處|email=電子郵件|embark=登船;開始|embarrass=使尷尬|embarrassment=尷尬|embassy=大使館|embody=體現|embrace=擁抱;欣然接受|embroider=刺繡|embryo=胚胎|emerge=浮現|emergency=緊急情況|emigrant=移出者|emigrate=移居國外|emission=排放|emit=散發|emotion=情緒|emotional=情緒的|emperor=皇帝|emphasis=強調|emphasize=強調|empire=帝國|empirical=經驗主義的|employ=僱用|employee=員工|employer=雇主|employment=就業|empty=空的|enable=使能夠|enant=迷人的|enclosed=附上的|encounter=遇到|encourage=鼓勵|encouragement=鼓勵|encyclopedia=百科全書|end=結束|endanger=危及|endeavor=努力|ending=結局|endless=無止盡的|endorse=背書;贊同|endowment=天賦;捐贈|endurance=忍耐力|endure=忍受|enemy=敵人|energetic=精力充沛的|energy=能量|enforce=執行|enforcement=執行|engage=從事;訂婚|engagement=訂婚|engine=引擎|engineer=工程師|engineering=工程|engrave=雕刻|enhance=增強|enjoy=享受|enjoyable=愉快的|enjoyment=樂趣|enlarge=擴大|enlargement=擴大|enlighten=啟發|enlist=入伍|enormous=巨大的|enough=足夠的|enquire=詢問|enrich=使豐富|enroll=註冊|ensemble=全體;合奏組|ensure=確保|entail=使必要;牽涉|enter=進入|enterprise=企業|entertain=娛樂|entertainment=娛樂|enthusiasm=熱情|enthusiastic=熱情的|entire=整體的|entitle=給予權利|entity=實體|entrance=入口|entrepreneur=企業家|entry=進入;項目|envelope=信封|environment=環境|environmental=環境的|envy=羨慕|epidemic=流行病|episode=插曲;一集|epoch=紀元|equal=平等的|equality=平等|equate=視為相等|equation=方程式|equip=裝備|equipment=裝備|equivalent=相等的|era=時代|erase=擦掉|eraser=橡皮擦|erect=豎立|erode=侵蝕|erosion=侵蝕|error=錯誤|erupt=爆發|escalator=手扶梯|escape=逃脫|escort=護送|essay=文章|essence=本質|essential=必要的|establish=建立|establishment=建立;機構|estate=地產|esteem=尊敬|estimate=估計|eternal=永恆的|ethic=倫理|ethical=倫理的|ethnic=種族的|etiquette=禮儀|evacuate=撤離|evade=逃避|evaluate=評估|evaluation=評估|evaporate=蒸發|eve=前夕|even=甚至;平坦的|evening=晚上|event=事件|eventual=最終的|ever=曾經|everlasting=永恆的|every=每一個|everybody=每個人|everyday=每天的|everyone=每個人|everything=每件事|everywhere=到處|evidence=證據|evident=明顯的|evil=邪惡的|evoke=喚起|evolution=演化|evolve=演化|exact=確切的|exaggerate=誇張|exaggeration=誇張|exam=考試|examination=檢查;考試|examine=檢查|examinee=考生|examiner=主考官|example=例子|exceed=超過|exceedingly=極其|excel=擅長|excellence=優秀|excellent=優秀的|except=除了|exception=例外|exceptional=例外的;傑出的|excerpt=摘錄|excess=過量|excessive=過度的|exchange=交換|excite=使興奮|excitement=興奮|exciting=令人興奮的|exclaim=驚叫|exclude=排除|exclusion=排除|exclusive=獨家的|excursion=遠足|excuse=藉口;原諒|execute=執行;處決|execution=執行;處決|executive=行政的;主管|exempt=免除|exercise=運動;練習|exert=運用|exhaust=耗盡;廢氣|exhausted=筋疲力盡的|exhaustion=精疲力竭|exhibit=展覽|exhibition=展覽|exile=流放|exist=存在|existence=存在|exit=出口|exotic=異國情調的|expand=擴大|expansion=擴大|expect=期待|expectation=期待|expedition=遠征|expel=驅逐|expend=花費|expenditure=支出|expense=費用|expensive=昂貴的|experience=經驗|experienced=有經驗的|experiment=實驗|experimental=實驗的|expert=專家|expertise=專業知識|expire=到期|explain=解釋|explanation=解釋|explicit=明確的|explode=爆炸|exploit=剝削;開發|exploration=探索|explore=探索|explosion=爆炸|explosive=爆炸性的|export=出口|expose=暴露|exposure=暴露|express=表達;快遞|expression=表達|expressive=表情豐富的|exquisite=精緻的|extend=延伸|extension=延伸|extensive=廣泛的|extent=程度|exterior=外部的|external=外部的|extinct=滅絕的|extinguish=熄滅|extra=額外的|extract=提取|extraordinary=非凡的|extravagant=奢侈的|extreme=極端的|eye=眼睛|eyebrow=眉毛|eyesight=視力|fable=寓言|fabric=布料;結構|fabricate=捏造|face=臉;面對|facial=臉部的|facilitate=促進|facility=設施|fact=事實|faction=派系|factor=因素|factory=工廠|faculty=全體教職員;能力|fade=褪色|fail=失敗|failure=失敗|faint=昏倒;微弱的|fair=公平的|fairly=相當地|fairy=仙女|faith=信心|faithful=忠實的|fake=假的|fall=跌倒;秋天|false=錯誤的|fame=名聲|familiar=熟悉的|family=家庭|famine=饑荒|famous=著名的|fan=風扇;迷|fanatic=狂熱者|fancy=花俏的;幻想|fantastic=極好的|fantasy=幻想|far=遠的|fare=票價|farewell=告別|farm=農場|farmer=農夫|farther=更遠的|fascinate=迷住|fascination=著迷|fashion=時尚|fashionable=時尚的|fast=快的|fasten=繫緊|fat=胖的;脂肪|fatal=致命的|fate=命運|father=父親|fatigue=疲勞|faucet=水龍頭|fault=錯誤;斷層|favor=偏愛;恩惠|favorable=有利的|favorite=最喜愛的|fear=恐懼|fearful=可怕的|feasible=可行的|feast=盛宴|feat=功績|feather=羽毛|feature=特徵|february=二月|federal=聯邦的|federation=聯邦|fee=費用|feeble=虛弱的|feed=餵食|feedback=回饋|feel=感覺|feeling=感覺|fell=砍伐|fellow=同伴|fellowship=夥伴關係|female=女性的|feminine=女性的|fence=柵欄|ferry=渡輪|fertile=肥沃的|fertilizer=肥料|festival=節日|fetch=拿來|feudal=封建的|fever=發燒|few=很少|fiber=纖維|fiction=小說;虛構|field=田野;領域|fierce=兇猛的|fifteen=十五|fifty=五十|fight=打架|fighter=鬥士|figure=數字;身材;人物|file=檔案;銼刀|fill=充滿|film=電影;底片|filter=過濾|filth=污穢|fin=鰭|final=最後的|finance=財政|financial=財務的|find=發現|finding=發現|fine=好的;罰款|finger=手指|finish=完成|finite=有限的|fire=火;解僱|fireman=消防員|fireplace=壁爐|firework=煙火|firm=公司;堅定的|first=第一|fiscal=財政的|fish=魚|fisherman=漁夫|fishery=漁業|fist=拳頭|fit=適合;健康的|fitting=適合的|five=五|fix=修理;固定|fixture=固定裝置|flag=旗幟|flake=薄片|flame=火焰|flank=側面|flap=拍打|flare=閃耀|flash=閃光|flashlight=手電筒|flat=平坦的|flatter=奉承|flavor=口味|flaw=缺陷|flea=跳蚤|flee=逃跑|fleet=艦隊|flesh=肉|flexible=靈活的|flick=輕彈|flicker=閃爍|flight=飛行;班機|fling=投擲|flip=翻轉|flirt=調情|float=漂浮|flock=群|flood=洪水|floor=地板|flour=麵粉|flourish=繁榮|flow=流動|flower=花|flu=流感|fluctuate=波動|fluent=流利的|fluid=液體|flush=沖洗;臉紅|flute=長笛|flutter=飄動|fly=飛;蒼蠅|foam=泡沫|focus=焦點|fog=霧|foil=箔|fold=摺疊|folder=文件夾|folk=民間的|folklore=民間傳說|follow=跟隨|follower=追隨者|following=接下來的|folly=愚蠢|fond=喜歡的|food=食物|fool=傻瓜;欺騙|foolish=愚蠢的|foot=腳|football=足球|for=為了|forbid=禁止|force=力量;強迫|forecast=預測|forefather=祖先|forehead=額頭|foreign=外國的|foreigner=外國人|foremost=最重要的|foresee=預見|forest=森林|forever=永遠|forfeit=喪失|forge=偽造;鍛造|forget=忘記|forgive=原諒|fork=叉子|form=形式;表格|formal=正式的|format=格式|formation=形成|former=前者的|midable=可怕的|formula=公式|formulate=規劃|fort=堡壘|forth=向前|forthcoming=即將到來的|fortify=加強|fortnight=兩週|fortune=運氣;財富|fortunate=幸運的|forum=論壇|forward=向前的|fossil=化石|foster=收養;促進|foul=犯規;骯髒的|found=建立|foundation=基礎;基金會|founder=創辦人|fountain=噴泉|four=四|fourteen=十四|fowl=家禽|fox=狐狸|fraction=分數;小部分|fracture=骨折|fragile=易碎的|fragment=碎片|fragrance=香氣|fragrant=芬芳的|frail=虛弱的|frame=框架|framework=架構|franchise=經銷權|frank=坦白的|frantic=發狂的|fraud=詐欺|freak=怪胎|free=自由的;免費的|freedom=自由|freeway=高速公路|freeze=結冰|freight=貨物|frequency=頻率|frequent=頻繁的|fresh=新鮮的|freshman=大一新生|fret=苦惱|friction=摩擦|friday=星期五|friend=朋友|friendly=友善的|friendship=友誼|fright=驚嚇|frighten=使驚嚇|frog=青蛙|from=來自|front=前面|frontier=邊境|frost=霜|frown=皺眉|fruit=水果|frustrate=使挫折|frustration=挫折|fry=油炸|fuel=燃料|fulfill=實現;滿足|full=滿的|fume=煙;發怒|fun=樂趣|function=功能|functional=功能的|fund=基金;資助|fundamental=基礎的|funeral=葬禮|funnel=漏斗|funny=好笑的|fur=毛皮|furious=憤怒的|furnace=火爐|furnish=佈置|furniture=傢俱|further=進一步的|furthermore=此外|fury=憤怒|fuse=保險絲|fuss=大驚小怪|future=未來";
+
+        // ==========================================
+        // 2. 狀態管理與邏輯
+        // ==========================================
+        let state = {
+            defaultList: [],
+            customList: [],
+            activeList: [],
+            currentIndex: 0,
+            isFlipped: false
+        };
+
+        const els = {
+            cardContainer: document.getElementById('card-container'),
+            cardInner: document.getElementById('card-inner'),
+            cardWord: document.getElementById('card-word'),
+            cardDef: document.getElementById('card-def'),
+            cardNote: document.getElementById('card-note'),
+            counter: document.getElementById('counter-text'),
+            totalCount: document.getElementById('total-count-display'),
+            sourceBadge: document.getElementById('source-badge'),
+            progressBar: document.getElementById('progress-bar'),
+            linkCambridge: document.getElementById('link-cambridge'),
+            
+            // Upload
+            fileInput: document.getElementById('file-input'),
+            uploadStatus: document.getElementById('upload-status'),
+            dropZone: document.getElementById('drop-zone'),
+            
+            // Buttons
+            btnNext: document.getElementById('btn-next'),
+            btnPrev: document.getElementById('btn-prev'),
+            btnShuffle: document.getElementById('btn-shuffle'),
+            btnSpeakBack: document.getElementById('btn-speak-back'),
+            btnReplace: document.getElementById('btn-replace'),
+            btnMerge: document.getElementById('btn-merge')
+        };
+
+        let tempUploadedData = [];
+
+        // 初始化
+        function init() {
+            // 1. 解析內建壓縮字串
+            const parsed = packedData.split('|').map(item => {
+                const [word, def] = item.split('=');
+                return { word, def: def || '' };
+            });
+            
+            state.defaultList = parsed;
+            state.activeList = [...state.defaultList];
+            
+            // 洗牌
+            shuffle(state.activeList);
+            
+            updateUI();
+            
+            // 事件綁定
+            bindEvents();
+        }
+
+        // UI 更新
+        function updateUI() {
+            if (state.activeList.length === 0) return;
+
+            const item = state.activeList[state.currentIndex];
+            
+            // 卡片內容
+            els.cardWord.textContent = item.word;
+            els.cardDef.textContent = item.def;
+            els.cardNote.textContent = item.note ? `筆記: ${item.note}` : '';
+            els.cardNote.className = item.note ? "text-slate-500 text-sm mt-4 block" : "hidden";
+
+            // 劍橋連結
+            els.linkCambridge.href = `https://dictionary.cambridge.org/zht/%E8%A9%9E%E5%85%B8/%E8%8B%B1%E8%AA%9E-%E6%BC%A2%E8%AA%9E-%E7%B9%81%E9%AB%94/${item.word}`;
+
+            // 數據統計
+            els.counter.textContent = `${state.currentIndex + 1} / ${state.activeList.length}`;
+            els.totalCount.textContent = state.activeList.length.toLocaleString();
+            
+            const progress = ((state.currentIndex + 1) / state.activeList.length) * 100;
+            els.progressBar.style.width = `${progress}%`;
+
+            // 重置翻轉
+            state.isFlipped = false;
+            els.cardInner.classList.remove('rotate-y-180');
+        }
+
+        // 翻轉邏輯
+        function toggleFlip() {
+            state.isFlipped = !state.isFlipped;
+            if (state.isFlipped) els.cardInner.classList.add('rotate-y-180');
+            else els.cardInner.classList.remove('rotate-y-180');
+        }
+
+        function nextCard() {
+            state.currentIndex = (state.currentIndex + 1) % state.activeList.length;
+            updateUI();
+        }
+
+        function prevCard() {
+            state.currentIndex = (state.currentIndex - 1 + state.activeList.length) % state.activeList.length;
+            updateUI();
+        }
+
+        function shuffleList() {
+            shuffle(state.activeList);
+            state.currentIndex = 0;
+            updateUI();
+        }
+
+        function speak() {
+            const word = state.activeList[state.currentIndex].word;
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(word);
+            u.lang = 'en-US'; 
+            u.rate = 0.8;
+            window.speechSynthesis.speak(u);
+        }
+
+        // 輔助：洗牌演算法
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // ==========================================
+        // 3. 上傳解析邏輯
+        // ==========================================
+        
+        function handleFileSelect(file) {
+            if (!file) return;
+            
+            els.uploadStatus.textContent = "正在解析...";
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const content = e.target.result;
+                    let result = [];
+
+                    // 1. JSON 格式
+                    if (file.name.endsWith('.json') || content.trim().startsWith('[')) {
+                        const json = JSON.parse(content);
+                        if (Array.isArray(json)) {
+                            result = json.map(item => {
+                                const w = item.word || item.vocabulary || item.term;
+                                const d = item.def || item.definition || item.meaning || item.trans || '';
+                                const n = item.note || item.example || '';
+                                if(w) return { word: w, def: d, note: n };
+                                return null;
+                            }).filter(Boolean);
+                        }
+                    } 
+                    // 2. 純文字/CSV 格式
+                    else {
+                        const lines = content.split('\n');
+                        result = lines.map(line => {
+                            if(!line.trim()) return null;
+                            const parts = line.split(/,|，|=|\t/);
+                            if (parts.length >= 2) {
+                                return { 
+                                    word: parts[0].trim(), 
+                                    def: line.substring(parts[0].length + 1).replace(/,|，|=|\t/, '').trim() 
+                                };
+                            }
+                            return null;
+                        }).filter(Boolean);
+                    }
+
+                    if (result.length > 0) {
+                        tempUploadedData = result;
+                        els.uploadStatus.textContent = `解析成功！共 ${result.length} 個單字。請選擇處理方式。`;
+                        els.uploadStatus.className = "text-center text-sm mt-4 text-green-600 font-bold";
+                    } else {
+                        throw new Error("No valid data");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    els.uploadStatus.textContent = "格式錯誤或無效資料。";
+                    els.uploadStatus.className = "text-center text-sm mt-4 text-red-500 font-bold";
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function applyUpload(mode) {
+            if (tempUploadedData.length === 0) return;
+
+            if (mode === 'replace') {
+                state.customList = tempUploadedData;
+                state.activeList = [...state.customList];
+                els.sourceBadge.textContent = "來源: 使用者自訂 (已取代)";
+                els.sourceBadge.className = "bg-purple-900/50 text-purple-300 border border-purple-800 text-xs px-2 py-1 rounded";
+            } else if (mode === 'merge') {
+                state.customList = tempUploadedData;
+                const existingWords = new Set(state.defaultList.map(i => i.word.toLowerCase()));
+                const newUnique = tempUploadedData.filter(i => !existingWords.has(i.word.toLowerCase()));
+                
+                state.activeList = [...state.defaultList, ...newUnique];
+                els.sourceBadge.textContent = "來源: 混合模式 (預設 + 自訂)";
+                els.sourceBadge.className = "bg-green-900/50 text-green-300 border border-green-800 text-xs px-2 py-1 rounded";
+                alert(`已加入 ${newUnique.length} 個新單字 (重複的已略過)`);
+            }
+
+            shuffle(state.activeList);
+            state.currentIndex = 0;
+            updateUI();
+            document.getElementById('upload-modal').classList.add('hidden');
+        }
+
+        // ==========================================
+        // 4. 事件監聽
+        // ==========================================
+
+        function bindEvents() {
+            els.cardContainer.addEventListener('click', toggleFlip);
+            
+            els.btnNext.addEventListener('click', (e) => { e.stopPropagation(); nextCard(); });
+            els.btnPrev.addEventListener('click', (e) => { e.stopPropagation(); prevCard(); });
+            els.btnShuffle.addEventListener('click', (e) => { e.stopPropagation(); shuffleList(); });
+            els.btnSpeakBack.addEventListener('click', (e) => { e.stopPropagation(); speak(); });
+
+            // 鍵盤
+            document.addEventListener('keydown', (e) => {
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    toggleFlip();
+                } else if (e.code === 'ArrowRight') {
+                    nextCard();
+                } else if (e.code === 'ArrowLeft') {
+                    prevCard();
+                }
+            });
+
+            // 上傳拖曳
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                els.dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+            });
+            
+            els.dropZone.addEventListener('dragenter', () => els.dropZone.classList.add('drag-active'));
+            els.dropZone.addEventListener('dragleave', () => els.dropZone.classList.remove('drag-active'));
+            els.dropZone.addEventListener('drop', (e) => {
+                els.dropZone.classList.remove('drag-active');
+                handleFileSelect(e.dataTransfer.files[0]);
+            });
+
+            // 點擊上傳
+            els.dropZone.addEventListener('click', () => els.fileInput.click());
+            els.fileInput.addEventListener('change', (e) => handleFileSelect(e.target.files[0]));
+
+            // 上傳確認按鈕
+            els.btnReplace.addEventListener('click', () => applyUpload('replace'));
+            els.btnMerge.addEventListener('click', () => applyUpload('merge'));
+        }
+
+        // 啟動
+        init();
+
+    </script>
+</body>
+</html>
